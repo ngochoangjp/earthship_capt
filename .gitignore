@@ -8,3 +8,6 @@ node_modules/
 .env/
 # Ignore userdata
 userdata/
+# Ignore _pycache
+__pycache__/
+__pycache__/gpt4allconnect.cpython-312.pyc
