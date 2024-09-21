@@ -6,4 +6,5 @@ node_modules/
 
 # Ignore environment folder
 .env/
-# Ignore save data
+# Ignore userdata
+userdata/
