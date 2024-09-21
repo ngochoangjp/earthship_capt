@@ -1,7 +1,6 @@
-pythonimport gradio as gr
+import gradio as gr
 from gpt4all import GPT4All
 import uuid
-import threading
 import time
 import logging
 import json
@@ -118,16 +117,20 @@ def create_user_interface():
         chatbot = gr.Chatbot(elem_id="chatbot")
         msg = gr.Textbox(placeholder="Type your message here...", label="User Input")
         stop_btn = gr.Button("Stop Generating")
-
+         
+        # Load chat history for the user
         def load_chat_history(username):
             return load_user_chat(username)
 
+        # Handle user input
         def user_msg(user_message, history, username):
             return user(user_message, history, username)
 
+        # Handle bot response
         def bot_msg(history, username):
             return bot(history, username)
 
+        # Assign input/output actions
         username.submit(load_chat_history, inputs=[username], outputs=[chatbot])
         msg.submit(user_msg, [msg, chatbot, username], [msg, chatbot]).then(
             bot_msg, [chatbot, username], chatbot
@@ -147,14 +150,17 @@ def create_master_interface():
         master_chatbot = gr.Chatbot(elem_id="master_chatbot")
         refresh_button = gr.Button("Refresh User List")
 
+        # Refresh user list
         def refresh_users():
-            return gr.Dropdown(choices=list(user_chats.keys()))
+            return gr.Dropdown.update(choices=list(user_chats.keys()))
 
+        # Update chat history for selected user
         def update_master_view(selected_user):
             if selected_user in user_chats:
                 return user_chats[selected_user]
             return []
 
+        # Handle button and dropdown interactions
         refresh_button.click(refresh_users, outputs=[user_selector])
         user_selector.change(update_master_view, inputs=[user_selector], outputs=[master_chatbot])
 
@@ -165,13 +171,9 @@ user_interface = create_user_interface()
 master_interface = create_master_interface()
 
 # Launch user interface
-user_thread = threading.Thread(target=lambda: user_interface.launch(server_name="127.0.0.1", server_port=7860, share=True))
-user_thread.start()
+user_interface.launch(server_name="127.0.0.1", server_port=7871, share=True)
+
 
 # Launch master interface
-master_thread = threading.Thread(target=lambda: master_interface.launch(server_name="127.0.0.1", server_port=7861))
-master_thread.start()
+master_interface.launch(server_name="127.0.0.1", server_port=7870)
 
-# Keep the main thread alive
-while True:
-    time.sleep(1)
