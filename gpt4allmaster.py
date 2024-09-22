@@ -6,7 +6,6 @@ import logging
 import json
 import os
 
-
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -71,9 +70,19 @@ custom_css = """
 }
 """
 
+# Updated user function to load history and greet the user
 def user(user_message, history, username):
     if username not in user_chats:
-        user_chats[username] = load_user_chat(username)
+        # Load the old chat history from file
+        history = load_user_chat(username)
+        user_chats[username] = history
+        # Add greeting at the start of the chat
+        greeting = f"Hi, {username}!"
+        history.append([None, greeting])
+        user_chats[username] = history
+        save_user_chat(username, history)
+    
+    # Append the user's new message to the history
     user_chats[username] = history + [[user_message, None]]
     save_user_chat(username, user_chats[username])
     return "", user_chats[username]
@@ -85,7 +94,6 @@ def bot(history, username):
     user_chats[username] = history
     save_user_chat(username, history)
     return history
-# ... (previous code remains the same)
 
 # Add this global variable at the top of your script
 stop_generation = False
@@ -112,15 +120,18 @@ def stop_gen():
 # User Interface
 def create_user_interface():
     with gr.Blocks(css=custom_css) as user_interface:
-        gr.Markdown("# GPT4All Chatbot")
-        username = gr.Textbox(placeholder="Enter your username", label="Username")
+        gr.Markdown("# Earthship AI")
+        username = gr.Textbox(placeholder="Nhập tên của bạn (Chú ý chỉ dùng thống nhất một tên để AI bot nhớ ra bạn)", label="username")
         chatbot = gr.Chatbot(elem_id="chatbot")
-        msg = gr.Textbox(placeholder="Type your message here...", label="User Input")
+        msg = gr.Textbox(placeholder="Cùng truyện trò nào...", label="User Input")
         stop_btn = gr.Button("Stop Generating")
          
         # Load chat history for the user
         def load_chat_history(username):
-            return load_user_chat(username)
+            # Check if the username exists and load the chat history
+            if username not in user_chats:
+                user_chats[username] = load_user_chat(username)
+            return user_chats[username]
 
         # Handle user input
         def user_msg(user_message, history, username):
@@ -140,11 +151,10 @@ def create_user_interface():
 
     return user_interface
 
-# ... (rest of the code remains the same)
 # Master Interface
 def create_master_interface():
     with gr.Blocks(css=custom_css) as master_interface:
-        gr.Markdown("# Master View - GPT4All Chatbot Monitor")
+        gr.Markdown("# Captain view")
         
         user_selector = gr.Dropdown(choices=[], label="Select User", interactive=True)
         master_chatbot = gr.Chatbot(elem_id="master_chatbot")
@@ -152,7 +162,7 @@ def create_master_interface():
 
         # Refresh user list
         def refresh_users():
-            return gr.Dropdown.update(choices=list(user_chats.keys()))
+            return gr.Dropdown(choices=list(user_chats.keys()))
 
         # Update chat history for selected user
         def update_master_view(selected_user):
@@ -173,7 +183,5 @@ master_interface = create_master_interface()
 # Launch user interface
 user_interface.launch(server_name="127.0.0.1", server_port=7871, share=True)
 
-
 # Launch master interface
 master_interface.launch(server_name="127.0.0.1", server_port=7870)
-
