@@ -1,0 +1,467 @@
+[
+    {
+        "label": "logging",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "GPT4All",
+        "importPath": "gpt4all",
+        "description": "gpt4all",
+        "isExtraImport": true,
+        "detail": "gpt4all",
+        "documentation": {}
+    },
+    {
+        "label": "GPT4All",
+        "importPath": "gpt4all",
+        "description": "gpt4all",
+        "isExtraImport": true,
+        "detail": "gpt4all",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "gradio",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "gradio",
+        "description": "gradio",
+        "detail": "gradio",
+        "documentation": {}
+    },
+    {
+        "label": "uuid",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "uuid",
+        "description": "uuid",
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "base64",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "base64",
+        "description": "base64",
+        "detail": "base64",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "gpt4allconnect",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "threading",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "threading",
+        "description": "threading",
+        "detail": "threading",
+        "documentation": {}
+    },
+    {
+        "label": "gradioUI",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "gradioUI",
+        "description": "gradioUI",
+        "detail": "gradioUI",
+        "documentation": {}
+    },
+    {
+        "label": "initialize_model",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def initialize_model():\n    global model\n    model_path = r\"Z:\\This\\This\\Ai\\AiRun\\Gpt4all\\Models\\qwen2-7b-instruct-q4_0.gguf\"\n    try:\n        model = GPT4All(model_path, device=\"gpu\")  # Always use CPU for consistency\n        logging.info(\"Model initialized successfully.\")\n    except Exception as e:\n        logging.error(f\"Failed to initialize model: {str(e)}\")\n        raise\ndef generate_response(message, history):",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "generate_response",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def generate_response(message, history):\n    global stop_generation\n    stop_generation = False\n    try:\n        with model.chat_session():\n            response = \"\"\n            for token in model.generate(message, max_tokens=1024, streaming=True):\n                if stop_generation:\n                    break\n                response += token",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "stop_gen",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def stop_gen():\n    global stop_generation\n    stop_generation = True\ndef save_user_chat(username, chat_history):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    with open(file_path, 'w') as f:\n        json.dump(chat_history, f)\ndef load_user_chat(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "save_user_chat",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def save_user_chat(username, chat_history):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    with open(file_path, 'w') as f:\n        json.dump(chat_history, f)\ndef load_user_chat(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r') as f:\n            return json.load(f)\n    return []",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "load_user_chat",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def load_user_chat(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r') as f:\n            return json.load(f)\n    return []\ndef user_message(user_message, history, username):\n    if username not in user_chats:\n        user_chats[username] = load_user_chat(username)\n    user_chats[username] = history + [[user_message, None]]",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "user_message",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def user_message(user_message, history, username):\n    if username not in user_chats:\n        user_chats[username] = load_user_chat(username)\n    user_chats[username] = history + [[user_message, None]]\n    save_user_chat(username, user_chats[username])\n    return \"\", user_chats[username]\ndef bot_message(history, username):\n    user_message = history[-1][0]\n    bot_message = generate_response(user_message, history)\n    history[-1][1] = bot_message",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "bot_message",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def bot_message(history, username):\n    user_message = history[-1][0]\n    bot_message = generate_response(user_message, history)\n    history[-1][1] = bot_message\n    user_chats[username] = history\n    save_user_chat(username, history)\n    return history\ndef get_all_users():\n    return list(user_chats.keys())\ndef get_user_chat(username):",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "get_all_users",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def get_all_users():\n    return list(user_chats.keys())\ndef get_user_chat(username):\n    return user_chats.get(username, [])",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "get_user_chat",
+        "kind": 2,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "def get_user_chat(username):\n    return user_chats.get(username, [])",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "USER_DATA_FOLDER",
+        "kind": 5,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "USER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\n# Global variables\nmodel = None\nuser_chats = {}\nstop_generation = False\ndef initialize_model():\n    global model\n    model_path = r\"Z:\\This\\This\\Ai\\AiRun\\Gpt4all\\Models\\qwen2-7b-instruct-q4_0.gguf\"\n    try:",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "model",
+        "kind": 5,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "model = None\nuser_chats = {}\nstop_generation = False\ndef initialize_model():\n    global model\n    model_path = r\"Z:\\This\\This\\Ai\\AiRun\\Gpt4all\\Models\\qwen2-7b-instruct-q4_0.gguf\"\n    try:\n        model = GPT4All(model_path, device=\"gpu\")  # Always use CPU for consistency\n        logging.info(\"Model initialized successfully.\")\n    except Exception as e:",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "user_chats",
+        "kind": 5,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "user_chats = {}\nstop_generation = False\ndef initialize_model():\n    global model\n    model_path = r\"Z:\\This\\This\\Ai\\AiRun\\Gpt4all\\Models\\qwen2-7b-instruct-q4_0.gguf\"\n    try:\n        model = GPT4All(model_path, device=\"gpu\")  # Always use CPU for consistency\n        logging.info(\"Model initialized successfully.\")\n    except Exception as e:\n        logging.error(f\"Failed to initialize model: {str(e)}\")",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "stop_generation",
+        "kind": 5,
+        "importPath": "gpt4allconnect",
+        "description": "gpt4allconnect",
+        "peekOfCode": "stop_generation = False\ndef initialize_model():\n    global model\n    model_path = r\"Z:\\This\\This\\Ai\\AiRun\\Gpt4all\\Models\\qwen2-7b-instruct-q4_0.gguf\"\n    try:\n        model = GPT4All(model_path, device=\"gpu\")  # Always use CPU for consistency\n        logging.info(\"Model initialized successfully.\")\n    except Exception as e:\n        logging.error(f\"Failed to initialize model: {str(e)}\")\n        raise",
+        "detail": "gpt4allconnect",
+        "documentation": {}
+    },
+    {
+        "label": "initialize_model",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def initialize_model():\n    model_path = r\"Z:\\This\\This\\Ai\\models\\GGUF\\capybarahermes-2.5-mistral-7b.Q4_K_S.gguf\"\n    try:\n        model = GPT4All(model_path, device=\"cuda\")\n        logging.info(\"Model initialized successfully.\")\n    except Exception as e:\n        logging.error(f\"Failed to initialize model: {str(e)}\")\n        raise\n    return model\nmodel = initialize_model()",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "save_user_data",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def save_user_data(username, data):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    with open(file_path, 'w') as f:\n        json.dump(data, f)\ndef load_user_data(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r') as f:\n            data = json.load(f)\n        if \"chat_history\" in data:",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "load_user_data",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def load_user_data(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r') as f:\n            data = json.load(f)\n        if \"chat_history\" in data:\n            # Convert old format to new format if necessary\n            if data[\"chat_history\"] and isinstance(data[\"chat_history\"][0], dict):\n                data[\"chat_history\"] = [\n                    [msg[\"content\"], None] if msg[\"role\"] == \"user\" else [None, msg[\"content\"]]",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "create_new_user",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def create_new_user(username, password):\n    if not username or not password:\n        return {\n            \"visible\": True,\n            \"chat_visible\": False,\n            \"login_info\": {\"username\": \"\", \"password\": \"\", \"logged_in\": False},\n            \"chatbot\": [],\n            \"user_avatar\": None,\n            \"bot_avatar\": None,\n            \"login_message\": \"Vui lòng nhập tên đăng nhập và mật khẩu.\"",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "generate_response",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def generate_response(message, history, personality):\n    global stop_generation\n    stop_generation = False\n    try:\n        with model.chat_session():\n            response = \"\"\n            personality_prompt = PERSONALITIES.get(personality, \"\")\n            # Use the prompt template\n            full_prompt = PROMPT_TEMPLATE.format(\n                system_message=personality_prompt,",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "stop_gen",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def stop_gen():\n    global stop_generation\n    stop_generation = True\n# Custom CSS to make the interface look more like Claude and improve user-friendliness\ncustom_css = \"\"\"\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f5f5f5;\n    color: #333;\n}",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "create_user_interface",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def create_user_interface():\n    with gr.Blocks(css=custom_css) as user_interface:\n        gr.Markdown(\"# Earthship AI\")\n        login_info = gr.State(value={\"username\": \"\", \"password\": \"\", \"logged_in\": False})\n        with gr.Group() as login_group:\n            with gr.Column():\n                gr.Markdown(\"## Đăng nhập\")\n                username = gr.Textbox(label=\"Tên đăng nhập\", placeholder=\"Nhập tên đăng nhập\")\n                password = gr.Textbox(label=\"Mật khẩu\", placeholder=\"Nhập mật khẩu\", type=\"password\")\n                with gr.Row():",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "create_master_interface",
+        "kind": 2,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "def create_master_interface():\n    with gr.Blocks(css=custom_css) as master_interface:\n        gr.Markdown(\"# Captain view\")\n        with gr.Row():\n            user_selector = gr.Dropdown(choices=[], label=\"Select User\", interactive=True)\n            refresh_button = gr.Button(\"Refresh User List\")\n        master_chatbot = gr.Chatbot(elem_id=\"master_chatbot\", height=500)\n        # Refresh user list based on existing files in userdata folder\n        def refresh_users():\n            user_files = os.listdir(USER_DATA_FOLDER)",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_PASSWORD",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "DEFAULT_PASSWORD = \"admin\"\n# Global variable to store user chats\nuser_chats = {}\n# Personalities dictionary\nPERSONALITIES = {\n    \"Default\": \"You are a helpful AI assistant.\",\n    \"Thư ký nam\": \"You are always responding to user questions with a compliment before answering.\",\n    \"Giáo sư\": \"You are a knowledgeable professor who explains concepts in detail.\",\n    \"Người bạn\": \"You are a friendly and supportive companion who offers encouragement.\",\n    \"Nhà phê bình\": \"You provide constructive criticism and analytical feedback on ideas.\"",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "user_chats",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "user_chats = {}\n# Personalities dictionary\nPERSONALITIES = {\n    \"Default\": \"You are a helpful AI assistant.\",\n    \"Thư ký nam\": \"You are always responding to user questions with a compliment before answering.\",\n    \"Giáo sư\": \"You are a knowledgeable professor who explains concepts in detail.\",\n    \"Người bạn\": \"You are a friendly and supportive companion who offers encouragement.\",\n    \"Nhà phê bình\": \"You provide constructive criticism and analytical feedback on ideas.\"\n}\nPREMADE_PROMPTS = {",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "PERSONALITIES",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "PERSONALITIES = {\n    \"Default\": \"You are a helpful AI assistant.\",\n    \"Thư ký nam\": \"You are always responding to user questions with a compliment before answering.\",\n    \"Giáo sư\": \"You are a knowledgeable professor who explains concepts in detail.\",\n    \"Người bạn\": \"You are a friendly and supportive companion who offers encouragement.\",\n    \"Nhà phê bình\": \"You provide constructive criticism and analytical feedback on ideas.\"\n}\nPREMADE_PROMPTS = {\n    \"Dịch văn bản\": \"Bạn là chuyên gia ngôn ngữ có thể dịch tốt mọi thứ tiếng. Hãy dịch đoạn văn sau: \",\n    \"Giải thích khoa học\": \"Bạn là một nhà khoa học. Hãy giải thích hiện tượng sau một cách dễ hiểu: \",",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "PREMADE_PROMPTS",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "PREMADE_PROMPTS = {\n    \"Dịch văn bản\": \"Bạn là chuyên gia ngôn ngữ có thể dịch tốt mọi thứ tiếng. Hãy dịch đoạn văn sau: \",\n    \"Giải thích khoa học\": \"Bạn là một nhà khoa học. Hãy giải thích hiện tượng sau một cách dễ hiểu: \",\n    \"Lập trình viên\": \"Bạn là một lập trình viên giỏi. Hãy giúp tôi với vấn đề lập trình sau: \",\n    \"Nhà văn\": \"Bạn là một nhà văn tài năng. Hãy viết một đoạn văn ngắn về chủ đề: \",\n    \"Chuyên gia tài chính\": \"Bạn là một chuyên gia tài chính. Hãy tư vấn cho tôi về vấn đề: \"\n}\n# Initialize the GPT4All model with error handling\ndef initialize_model():\n    model_path = r\"Z:\\This\\This\\Ai\\models\\GGUF\\capybarahermes-2.5-mistral-7b.Q4_K_S.gguf\"",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "model",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "model = initialize_model()\n# Folder to store user data\nUSER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\ndef save_user_data(username, data):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    with open(file_path, 'w') as f:\n        json.dump(data, f)\ndef load_user_data(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "USER_DATA_FOLDER",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "USER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\ndef save_user_data(username, data):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    with open(file_path, 'w') as f:\n        json.dump(data, f)\ndef load_user_data(username):\n    file_path = os.path.join(USER_DATA_FOLDER, f\"{username}.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r') as f:",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "stop_generation",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "stop_generation = False\nPROMPT_TEMPLATE = \"\"\"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\"\"\"\ndef create_new_user(username, password):\n    if not username or not password:\n        return {\n            \"visible\": True,",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "PROMPT_TEMPLATE",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "PROMPT_TEMPLATE = \"\"\"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\"\"\"\ndef create_new_user(username, password):\n    if not username or not password:\n        return {\n            \"visible\": True,\n            \"chat_visible\": False,",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "custom_css",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "custom_css = \"\"\"\nbody {\n    font-family: Arial, sans-serif;\n    background-color: #f5f5f5;\n    color: #333;\n}\n.container {\n    max-width: 800px;\n    margin: 0 auto;\n    padding: 20px;",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "user_interface",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "user_interface = create_user_interface()\nmaster_interface = create_master_interface()\n# Launch user interface\nuser_interface.launch(server_name=\"127.0.0.1\", server_port=7871, share=True)\n# Launch master interface\nmaster_interface.launch(server_name=\"127.0.0.1\", server_port=7870, share=False)",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "master_interface",
+        "kind": 5,
+        "importPath": "gpt4allmaster",
+        "description": "gpt4allmaster",
+        "peekOfCode": "master_interface = create_master_interface()\n# Launch user interface\nuser_interface.launch(server_name=\"127.0.0.1\", server_port=7871, share=True)\n# Launch master interface\nmaster_interface.launch(server_name=\"127.0.0.1\", server_port=7870, share=False)",
+        "detail": "gpt4allmaster",
+        "documentation": {}
+    },
+    {
+        "label": "create_user_interface",
+        "kind": 2,
+        "importPath": "gradioUI",
+        "description": "gradioUI",
+        "peekOfCode": "def create_user_interface():\n    with gr.Blocks(css=custom_css) as user_interface:\n        gr.Markdown(\"# Earthship Capt\")\n        username = gr.Textbox(placeholder=\"Enter your username\", label=\"Username\")\n        chatbot = gr.Chatbot(elem_id=\"chatbot\")\n        msg = gr.Textbox(placeholder=\"Type your message here...\", label=\"User Input\")\n        stop_btn = gr.Button(\"Stop Generating\")\n        username.submit(gpt4all.load_user_chat, inputs=[username], outputs=[chatbot])\n        msg.submit(gpt4all.user_message, [msg, chatbot, username], [msg, chatbot]).then(\n            gpt4all.bot_message, [chatbot, username], chatbot",
+        "detail": "gradioUI",
+        "documentation": {}
+    },
+    {
+        "label": "create_master_interface",
+        "kind": 2,
+        "importPath": "gradioUI",
+        "description": "gradioUI",
+        "peekOfCode": "def create_master_interface():\n    with gr.Blocks(css=custom_css) as master_interface:\n        gr.Markdown(\"# Master View - GPT4All Chatbot Monitor\")\n        user_selector = gr.Dropdown(choices=[], label=\"Select User\", interactive=True)\n        master_chatbot = gr.Chatbot(elem_id=\"master_chatbot\")\n        refresh_button = gr.Button(\"Refresh User List\")\n        save_button = gr.Button(\"Save User Data\")\n        load_button = gr.Button(\"Load Saved User Data\")\n        def refresh_users():\n            return gr.Dropdown(choices=gpt4all.get_all_users())",
+        "detail": "gradioUI",
+        "documentation": {}
+    },
+    {
+        "label": "custom_css",
+        "kind": 5,
+        "importPath": "gradioUI",
+        "description": "gradioUI",
+        "peekOfCode": "custom_css = \"\"\"\n.user {\n    background-color: #38697c !important;\n    padding: 15px;\n    border-radius: 15px;\n    margin-bottom: 10px;\n}\n.bot {\n    background-color: #276619 !important;\n    padding: 15px;",
+        "detail": "gradioUI",
+        "documentation": {}
+    },
+    {
+        "label": "user_interface",
+        "kind": 5,
+        "importPath": "launch",
+        "description": "launch",
+        "peekOfCode": "user_interface = gradioUI.create_user_interface()\nmaster_interface = gradioUI.create_master_interface()\n# Launch user interface\nuser_thread = threading.Thread(target=lambda: user_interface.launch(server_name=\"127.0.0.1\", server_port=7800, share=True))\nuser_thread.start()\n# Launch master interface\nmaster_thread = threading.Thread(target=lambda: master_interface.launch(server_name=\"127.0.0.1\", server_port=7801))\nmaster_thread.start()\n# Keep the main thread alive\nwhile True:",
+        "detail": "launch",
+        "documentation": {}
+    },
+    {
+        "label": "master_interface",
+        "kind": 5,
+        "importPath": "launch",
+        "description": "launch",
+        "peekOfCode": "master_interface = gradioUI.create_master_interface()\n# Launch user interface\nuser_thread = threading.Thread(target=lambda: user_interface.launch(server_name=\"127.0.0.1\", server_port=7800, share=True))\nuser_thread.start()\n# Launch master interface\nmaster_thread = threading.Thread(target=lambda: master_interface.launch(server_name=\"127.0.0.1\", server_port=7801))\nmaster_thread.start()\n# Keep the main thread alive\nwhile True:\n    time.sleep(1)",
+        "detail": "launch",
+        "documentation": {}
+    },
+    {
+        "label": "user_thread",
+        "kind": 5,
+        "importPath": "launch",
+        "description": "launch",
+        "peekOfCode": "user_thread = threading.Thread(target=lambda: user_interface.launch(server_name=\"127.0.0.1\", server_port=7800, share=True))\nuser_thread.start()\n# Launch master interface\nmaster_thread = threading.Thread(target=lambda: master_interface.launch(server_name=\"127.0.0.1\", server_port=7801))\nmaster_thread.start()\n# Keep the main thread alive\nwhile True:\n    time.sleep(1)",
+        "detail": "launch",
+        "documentation": {}
+    },
+    {
+        "label": "master_thread",
+        "kind": 5,
+        "importPath": "launch",
+        "description": "launch",
+        "peekOfCode": "master_thread = threading.Thread(target=lambda: master_interface.launch(server_name=\"127.0.0.1\", server_port=7801))\nmaster_thread.start()\n# Keep the main thread alive\nwhile True:\n    time.sleep(1)",
+        "detail": "launch",
+        "documentation": {}
+    }
+]
