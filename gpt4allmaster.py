@@ -1,5 +1,5 @@
 import gradio as gr
-from gpt4all import GPT4All
+import ollama
 import uuid
 import time
 import logging
@@ -7,12 +7,19 @@ import json
 import os
 import base64
 from pathlib import Path
+from gpt4allconnect import model
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 DEFAULT_PASSWORD = "admin"
-
+# Available Ollama Models
+AVAILABLE_MODELS = {
+    "Mistral": "mistral",
+    "Llama 2": "llama2", 
+    "CodeLlama": "codellama",
+    "marco-o1": "marco-o1"
+}
 # Global variable to store user chats
 user_chats = {}
 
@@ -33,18 +40,8 @@ PREMADE_PROMPTS = {
     "Chuyên gia tài chính": "Bạn là một chuyên gia tài chính. Hãy tư vấn cho tôi về vấn đề: "
 }
 
-# Initialize the GPT4All model with error handling
-def initialize_model():
-    model_path = r"Z:\This\This\Ai\models\GGUF\capybarahermes-2.5-mistral-7b.Q4_K_S.gguf"
-    try:
-        model = GPT4All(model_path, device="cuda")
-        logging.info("Model initialized successfully.")
-    except Exception as e:
-        logging.error(f"Failed to initialize model: {str(e)}")
-        raise
-    return model
-
-model = initialize_model()
+# Global variable to control generation
+stop_generation = False
 
 # Folder to store user data
 USER_DATA_FOLDER = "userdata"
@@ -125,10 +122,13 @@ def create_new_user(username, password):
         "bot_avatar": None,
         "login_message": ""
     }
-def generate_response(message, history, personality):
+def generate_response(message, history, personality, ollama_model):
     global stop_generation
     stop_generation = False
     try:
+        if model is None:
+            logging.error("Model is not initialized. Please check the model setup.")
+            yield "Model has not been initialized correctly."
         with model.chat_session():
             response = ""
             personality_prompt = PERSONALITIES.get(personality, "")
@@ -145,6 +145,7 @@ def generate_response(message, history, personality):
                 if token is not None:
                     response += token
                 yield response
+    
     except Exception as e:
         logging.error(f"Error generating response: {str(e)}")
         yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
@@ -152,6 +153,9 @@ def generate_response(message, history, personality):
 def stop_gen():
     global stop_generation
     stop_generation = True
+
+# Custom CSS and the rest of the code remains the same as in the original script 
+# (previous user_interface and master_interface functions)
 
 # Custom CSS to make the interface look more like Claude and improve user-friendliness
 custom_css = """
@@ -268,6 +272,12 @@ def create_user_interface():
                         choices=list(PERSONALITIES.keys()),
                         value="Default",
                         label="Chọn tính cách AI",
+                        interactive=True
+                    )
+                    model = gr.Dropdown(
+                        choices=list(AVAILABLE_MODELS.keys()),
+                        value="marco-o1",
+                        label="Chọn mô hình AI",
                         interactive=True
                     )
                     with gr.Column():
@@ -394,14 +404,16 @@ def create_user_interface():
             history.append([user_message, None])  # Add user message as a list of [user_message, None]
             return "", history
         
-        def bot_response(history, login_info, personality):
+        def bot_response(history, login_info, personality, model):
             if not history:
                 return history or []
         
             user_message = history[-1][0]
             bot_message = ""
             try:
-                for chunk in generate_response(user_message, history[:-1], personality):
+                # Pass the selected model name (converted from display name to Ollama model name)
+                ollama_model = AVAILABLE_MODELS[model]
+                for chunk in generate_response(user_message, history[:-1], personality, ollama_model):
                     new_content = chunk[len(bot_message):]  # Get only the new content
                     bot_message = chunk  # Update the full bot message
                     history[-1][1] = bot_message  # Update the bot's response in history
@@ -440,10 +452,10 @@ def create_user_interface():
         )
 
         msg.submit(user_msg, [msg, chatbot, login_info], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality], chatbot
+            bot_response, [chatbot, login_info, personality, model], chatbot
         )
         send.click(user_msg, [msg, chatbot, login_info], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality], chatbot
+            bot_response, [chatbot, login_info, personality, model], chatbot
         )
 
         clear.click(clear_chat, [login_info], chatbot)
