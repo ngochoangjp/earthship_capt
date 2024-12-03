@@ -7,7 +7,6 @@ import json
 import os
 import base64
 from pathlib import Path
-from gpt4allconnect import model
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -126,25 +125,47 @@ def generate_response(message, history, personality, ollama_model):
     global stop_generation
     stop_generation = False
     try:
-        if model is None:
-            logging.error("Model is not initialized. Please check the model setup.")
-            yield "Model has not been initialized correctly."
-        with model.chat_session():
-            response = ""
-            personality_prompt = PERSONALITIES.get(personality, "")
-            
-            # Use the prompt template
-            full_prompt = PROMPT_TEMPLATE.format(
-                system_message=personality_prompt,
-                prompt=message
-            )
-            
-            for token in model.generate(full_prompt, max_tokens=1024, streaming=True):
-                if stop_generation:
-                    break
-                if token is not None:
-                    response += token
-                yield response
+        response = ""
+        personality_prompt = PERSONALITIES.get(personality, "")
+        # Create the conversation history
+        messages = []
+          # Add system message first
+        messages.append({
+            'role': 'system',
+            'content': personality_prompt
+        })
+        
+        # Add conversation history
+        if history:
+            for user_msg, assistant_msg in history:
+                if user_msg:
+                    messages.append({
+                        'role': 'user',
+                        'content': user_msg
+                    })
+                if assistant_msg:
+                    messages.append({
+                        'role': 'assistant',
+                        'content': assistant_msg
+                    })
+        
+        # Add current message
+        messages.append({
+            'role': 'user',
+            'content': message
+        })
+        
+        # Generate response using ollama.chat
+        for chunk in ollama.chat(
+            model=AVAILABLE_MODELS[ollama_model],
+            messages=messages,
+            stream=True
+        ):
+            if stop_generation:
+                break
+            if 'message' in chunk:
+                response += chunk['message']['content']
+                yield response  # Important: yield the response as it's generated     
     
     except Exception as e:
         logging.error(f"Error generating response: {str(e)}")
