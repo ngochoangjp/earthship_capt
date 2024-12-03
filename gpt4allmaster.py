@@ -355,7 +355,7 @@ def create_user_interface():
                     gr.update(visible=False),
                     {"username": "", "password": "", "logged_in": False},
                     [],
-                    None,
+                    Non
                     None,
                     gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.")
                 )
@@ -523,8 +523,13 @@ def create_master_interface():
 user_interface = create_user_interface()
 master_interface = create_master_interface()
 
-# Launch user interface
-user_interface.launch(server_name="127.0.0.1", server_port=7871, share=True)
+# Launch user interface with CORS configuration
+user_interface.launch(
+    server_name="0.0.0.0",  # Changed from 127.0.0.1 to allow external connections
+    server_port=7871,
+    share=True,
+    cors_allowed_origins=["https://dev4fun.online"]
+)
 
 # Launch master interface
 master_interface.launch(server_name="127.0.0.1", server_port=7870, share=False)
