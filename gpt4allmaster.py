@@ -24,19 +24,26 @@ user_chats = {}
 
 # Personalities dictionary
 PERSONALITIES = {
-    "Default": "You are a helpful AI assistant.",
-    "Thư ký nam": "You are always responding to user questions with a compliment before answering.",
-    "Giáo sư": "You are a knowledgeable professor who explains concepts in detail.",
-    "Người bạn": "You are a friendly and supportive companion who offers encouragement.",
-    "Nhà phê bình": "You provide constructive criticism and analytical feedback on ideas."
+    "Trợ lý": "Bạn là một trợ lý AI hữu ích.",
+    "Thư ký": "Bạn luôn trả lời câu hỏi của người dùng bằng một lời khen trước khi giải đáp.",
+    "Giáo sư": "Bạn là một giáo sư có kiến thức sâu rộng, chuyên môn cao, và luôn sẵn lòng giải thích chi tiết các khái niệm phức tạp cho học sinh một cách dễ hiểu nhất.",
+    "Chuyên gia tâm lý": "Bạn là một chuyên gia tâm lý tận tâm, luôn lắng nghe, đồng cảm và tư vấn cách vượt qua khó khăn, giúp người dùng cảm thấy được hỗ trợ và hiểu rõ hơn về cảm xúc của mình.",
+    "Bạn thân": "Bạn là một người bạn thân thiết, luôn sẵn lòng hỗ trợ, chia sẻ niềm vui và nỗi buồn cùng người dùng, mang lại sự gần gũi và tin tưởng.",
+    "Bạn trai": "Bạn là một người bạn trai thân thiện, luôn lắng nghe và chia sẻ tình cảm với người khác, mang lại sự an ủi và hạnh phúc.",
+    "Bạn gái": "Bạn là một người bạn gái dịu dàng, luôn quan tâm đến cảm xúc của người khác và tạo ra không khí ấm áp trong mọi cuộc trò chuyện."
 }
 
 PREMADE_PROMPTS = {
-    "Dịch văn bản": "Bạn là chuyên gia ngôn ngữ có thể dịch tốt mọi thứ tiếng. Hãy dịch đoạn văn sau: ",
-    "Giải thích khoa học": "Bạn là một nhà khoa học. Hãy giải thích hiện tượng sau một cách dễ hiểu: ",
-    "Lập trình viên": "Bạn là một lập trình viên giỏi. Hãy giúp tôi với vấn đề lập trình sau: ",
-    "Nhà văn": "Bạn là một nhà văn tài năng. Hãy viết một đoạn văn ngắn về chủ đề: ",
-    "Chuyên gia tài chính": "Bạn là một chuyên gia tài chính. Hãy tư vấn cho tôi về vấn đề: "
+    "Dịch văn bản": "Bạn là chuyên gia ngôn ngữ có thể dịch tốt mọi thứ tiếng. Hãy dịch đoạn văn sau sang tiếng Việt một cách tự nhiên và chuẩn chính xác, đảm bảo giữ nguyên ý nghĩa gốc và sử dụng từ vựng phù hợp: ",
+    "Giải thích khoa học": "Bạn là một nhà khoa học. Hãy giải thích hiện tượng sau để một đứa trẻ 10 tuổi cũng có thể hiểu được, sử dụng ngôn ngữ đơn giản và ví dụ sinh động: ",
+    "Viết phần mềm": "Bạn là một lập trình viên giỏi. Hãy giúp tôi giải quyết vấn đề lập trình này bằng cách cung cấp mã nguồn chi tiết, giải thích từng bước và đưa ra lời khuyên để tránh lỗi tương tự trong tương lai: ",
+    "Sáng tác truyện": "Bạn là một nhà văn tài năng. Hãy viết một đoạn văn ngắn khoảng 100 từ về chủ đề sau, sử dụng ngôn ngữ sáng tạo và hấp dẫn: ",
+    "Tư vấn tài chính": "Bạn là một chuyên gia tài chính. Hãy tư vấn cho tôi về vấn đề tài chính này bằng cách cung cấp thông tin chi tiết, ví dụ minh họa, và lời khuyên thực tế để ứng dụng trong cuộc sống hàng ngày: ",
+    "Tham vấn tâm lý": "Bạn là chuyên gia tâm lý học. Hãy cung cấp sự hỗ trợ tâm lý cho người dùng về chủ đề sau, bao gồm việc lắng nghe, đưa ra lời khuyên phù hợp và hướng dẫn cách xử lý tình huống: ",
+    "Tư vấn tập GYM": "Bạn là huấn luyện viên thể hình chuyên nghiệp. Hãy tư vấn cho tôi một chương trình tập luyện GYM phù hợp với mức độ hiện tại của tôi, bao gồm các bài tập chính, lịch trình tập luyện, và lời khuyên về cách giữ động lực dựa trên thông tin cân nặng và chiều cao và % cơ của tôi sau đây: ",
+    "Tư vấn dinh dưỡng": "Bạn là chuyên gia dinh dưỡng. Hãy tư vấn cho tôi về chế độ ăn uống phù hợp với mục tiêu sức khỏe của tôi (ví dụ: giảm cân, tăng cơ, giữ gìn sức khỏe), bao gồm lời khuyên về thực phẩm, khẩu phần, và lịch trình ăn uống: ",
+    "Sáng tác lời bài hát": "Bạn là một nhà thơ và nhạc sĩ. Hãy sáng tác lời bài hát ngắn (khoảng 8-16 câu) về chủ đề sau, sử dụng ngôn ngữ giàu cảm xúc và ý nghĩa sâu sắc: ",
+    "Sáng tác nhạc": "Bạn là nhạc sĩ tài năng. Hãy sáng tác một bài hát với lời cau về chủ đề sau, sử dụng nhịp điệu phù hợp và âm nhạc dễ nghe: "
 }
 
 # Global variable to control generation
@@ -291,7 +298,7 @@ def create_user_interface():
                 with gr.Column(scale=1):
                     personality = gr.Dropdown(
                         choices=list(PERSONALITIES.keys()),
-                        value="Default",
+                        value="Trợ lý",
                         label="Chọn tính cách AI",
                         interactive=True
                     )
@@ -302,11 +309,11 @@ def create_user_interface():
                         interactive=True
                     )
                     with gr.Column():
-                        gr.Markdown("### Gợi ý câu hỏi")
+                        gr.Markdown("### Thư viện công cụ")
                         premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
-                with gr.Column(scale=3):
+                with gr.Column(scale=4):
                     chatbot = gr.Chatbot(elem_id="chatbot", height=500)
-                    with gr.Row():
+                    with gr.Column(scale=1):
                         msg = gr.Textbox(
                             label="Nhập tin nhắn của bạn",
                             placeholder="Nhập tin nhắn và nhấn Enter",
@@ -355,7 +362,7 @@ def create_user_interface():
                     gr.update(visible=False),
                     {"username": "", "password": "", "logged_in": False},
                     [],
-                    Non
+                    None,
                     None,
                     gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.")
                 )
@@ -528,7 +535,6 @@ user_interface.launch(
     server_name="0.0.0.0",  # Changed from 127.0.0.1 to allow external connections
     server_port=7871,
     share=True,
-    cors_allowed_origins=["https://dev4fun.online"]
 )
 
 # Launch master interface
