@@ -11,3 +11,24 @@ userdata/
 # Ignore _pycache
 __pycache__/
 __pycache__/gpt4allconnect.cpython-312.pyc
+.vscode/PythonImportHelper-v2-Completion.json
+5CD-AI_Vintern-3B-beta/.gitattributes
+5CD-AI_Vintern-3B-beta/added_tokens.json
+5CD-AI_Vintern-3B-beta/config.json
+5CD-AI_Vintern-3B-beta/ex_1.jpg
+5CD-AI_Vintern-3B-beta/ex_2.jpg
+5CD-AI_Vintern-3B-beta/ex_3.png
+5CD-AI_Vintern-3B-beta/ex_4.jpg
+5CD-AI_Vintern-3B-beta/ex_6.jpg
+5CD-AI_Vintern-3B-beta/generation_config.json
+5CD-AI_Vintern-3B-beta/merges.txt
+5CD-AI_Vintern-3B-beta/model-00001-of-00002.safetensors
+5CD-AI_Vintern-3B-beta/model-00002-of-00002.safetensors
+5CD-AI_Vintern-3B-beta/model.safetensors.index.json
+5CD-AI_Vintern-3B-beta/radar_chart.png
+5CD-AI_Vintern-3B-beta/README.md
+5CD-AI_Vintern-3B-beta/special_tokens_map.json
+5CD-AI_Vintern-3B-beta/tokenizer_config.json
+5CD-AI_Vintern-3B-beta/Vintern3B-logo.jpg
+5CD-AI_Vintern-3B-beta/vmlu_score.png
+5CD-AI_Vintern-3B-beta/vocab.json
