@@ -37,7 +37,7 @@ PERSONALITIES = {
     "Trợ lý": "Bạn là một trợ lý AI hữu ích.",
     "Thư ký": "Bạn luôn trả lời câu hỏi của người dùng bằng một lời khen trước khi giải đáp.",
     "Giáo sư": "Bạn là một giáo sư có kiến thức sâu rộng, chuyên môn cao, và luôn sẵn lòng giải thích chi tiết các khái niệm phức tạp cho học sinh một cách dễ hiểu nhất.",
-    "Chuyên gia tâm lý": "Bạn là một giáo sư chuyên gia tâm lý đầu ngành, câu trả lời của bạn luôn bao gồm các yếu tố sau: Lắng nghe không phán xét và phản hồi cảm xúc của bệnh nhân, Bảo mật thông tin và tạo không gian thoải mái, Sử dụng ngôn ngữ dễ hiểu và tích cực, Tôn trọng và đồng cảm: Tôn trọng quan điểm và thể hiện sự đồng cảm, Hướng dẫn và hỗ trợ: Cung cấp hướng dẫn cụ thể và hỗ trợ liên tục.",
+    "Chuyên gia tâm lý": "Bạn là chuyên gia tâm lý học. Hãy cung cấp sự hỗ trợ tâm lý cho người dùng, lắng nghe, đưa ra lời khuyên phù hợp và hướng dẫn cách xử lý tình huống, thỏa mãn các yếu tố sau ( không cần liệt kê khi nói chuyện với user) Lắng nghe không phán xét, phản hồi cảm xúc của user, Bảo mật thông tin, Sử dụng ngôn ngữ dễ hiểu và tích cực,Tôn trọng quan điểm và thể hiện sự đồng cảm, Cung cấp hướng dẫn hỗ trợ cụ thể:.",
     "Bạn thân": "Bạn là một người bạn thân thiết, luôn sẵn lòng hỗ trợ, chia sẻ niềm vui và nỗi buồn cùng người dùng, mang lại sự gần gũi và tin tưởng.",
     "Bạn trai": "Bạn là một người bạn trai thân thiện, luôn lắng nghe và chia sẻ tình cảm với người khác, mang lại sự an ủi và hạnh phúc.",
     "Bạn gái": "Bạn là một người bạn gái dịu dàng, luôn quan tâm đến cảm xúc của người khác và tạo ra không khí ấm áp trong mọi cuộc trò chuyện.",
@@ -50,7 +50,7 @@ PREMADE_PROMPTS = {
     "Viết phần mềm": "Bạn là một lập trình viên giỏi. Hãy giúp tôi giải quyết vấn đề lập trình này bằng cách cung cấp mã nguồn chi tiết, giải thích từng bước và đưa ra lời khuyên để tránh lỗi tương tự trong tương lai: ",
     "Sáng tác truyện": "Bạn là một nhà văn tài năng. Hãy viết một đoạn văn ngắn khoảng 100 từ về chủ đề sau, sử dụng ngôn ngữ sáng tạo và hấp dẫn: ",
     "Tư vấn tài chính": "Bạn là một chuyên gia tài chính. Hãy tư vấn cho tôi về vấn đề tài chính này bằng cách cung cấp thông tin chi tiết, ví dụ minh họa, và lời khuyên thực tế để ứng dụng trong cuộc sống hàng ngày: ",
-    "Tham vấn tâm lý": "Bạn là chuyên gia tâm lý học. Hãy cung cấp sự hỗ trợ tâm lý cho người dùng về chủ đề sau, bao gồm việc lắng nghe, đưa ra lời khuyên phù hợp và hướng dẫn cách xử lý tình huống: ",
+    "Tham vấn tâm lý": "Bạn là chuyên gia tâm lý học. Hãy cung cấp sự hỗ trợ tâm lý cho người dùng, lắng nghe, đưa ra lời khuyên phù hợp và hướng dẫn cách xử lý tình huống, thỏa mãn các yếu tố sau ( không cần liệt kê khi nói chuyện với user) Lắng nghe không phán xét, phản hồi cảm xúc của user, Bảo mật thông tin, Sử dụng ngôn ngữ dễ hiểu và tích cực,Tôn trọng quan điểm và thể hiện sự đồng cảm, Cung cấp hướng dẫn hỗ trợ cụ thể: ",
     "Tư vấn tập GYM": "Bạn là huấn luyện viên thể hình chuyên nghiệp. Hãy tư vấn cho tôi một chương trình tập luyện GYM phù hợp với mức độ hiện tại của tôi, bao gồm các bài tập chính, lịch trình tập luyện, và lời khuyên về cách giữ động lực dựa trên thông tin cân nặng và chiều cao và % cơ của tôi sau đây: ",
     "Tư vấn dinh dưỡng": "Bạn là chuyên gia dinh dưỡng. Hãy tư vấn cho tôi về chế độ ăn uống phù hợp với mục tiêu sức khỏe của tôi (ví dụ: giảm cân, tăng cơ, giữ gìn sức khỏe), bao gồm lời khuyên về thực phẩm, khẩu phần, và lịch trình ăn uống: ",
     "Sáng tác lời bài hát": "Bạn là một nhà thơ và nhạc sĩ. Hãy sáng tác lời bài hát ngắn (khoảng 8-16 câu) về chủ đề sau, sử dụng ngôn ngữ giàu cảm xúc và ý nghĩa sâu sắc: ",
@@ -265,6 +265,7 @@ def create_user_interface():
                     "treatment_preference": treatment
                 }
                 save_user_data(username, user_data)
+                return "Profile saved successfully"
 
         def load_profile_info(login_info):
             if not login_info["logged_in"]:
@@ -429,13 +430,17 @@ Thông tin người dùng:
 
         # Update login button to handle admin view
         login_button.click(
-            login,
+            fn=login,
             inputs=[username, password],
             outputs=[
                 login_group, chat_group, login_info, chatbot,
                 user_avatar, bot_avatar, login_message,
                 user_selector, admin_panel
             ]
+        ).then(
+            fn=load_profile_info,
+            inputs=[login_info],
+            outputs=[real_name, age, gender, height, weight, education, interests, treatment]
         )
 
         def user_msg(user_message, history, login_info):
@@ -485,22 +490,6 @@ Thông tin người dùng:
         def add_premade_prompt(prompt_text, current_msg):
             return current_msg + prompt_text if current_msg else prompt_text
 
-        login_button.click(
-            login,
-            inputs=[username, password],
-            outputs=[
-                login_group, chat_group, login_info, chatbot,
-                user_avatar, bot_avatar, login_message,
-                user_selector, admin_panel
-            ]
-        )
-
-        create_user_button.click(
-            create_new_user,
-            inputs=[username, password],
-            outputs=[login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message]
-        )
-
         msg.submit(user_msg, [msg, chatbot, login_info], [msg, chatbot]).then(
             bot_response, [chatbot, login_info, personality, model], chatbot
         )
@@ -515,12 +504,6 @@ Thông tin người dùng:
             save_profile_info,
             inputs=[real_name, age, gender, height, weight, education, interests, treatment, login_info],
             outputs=[]
-        )
-
-        login_button.click(
-            fn=load_profile_info,
-            inputs=[login_info],
-            outputs=[real_name, age, gender, height, weight, education, interests, treatment]
         )
 
         for button, prompt_text in zip(premade_prompt_buttons, PREMADE_PROMPTS.values()):
