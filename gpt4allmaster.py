@@ -13,11 +13,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 DEFAULT_PASSWORD = "admin"
 # Available Ollama Models
+MODEL_DISPLAY_NAMES = {
+    "Vietai": "Tuanpham/t-visstar-7b:latest",
+    "codegpt": "marco-o1",
+    "Llama 2": "llama2",
+    "CodeLlama": "codellama"
+}
+
+# Technical model names for Ollama
 AVAILABLE_MODELS = {
-    "Mistral": "mistral",
-    "Llama 2": "llama2", 
-    "CodeLlama": "codellama",
-    "marco-o1": "marco-o1"
+    model_tech: model_tech for model_tech in {
+        "Tuanpham/t-visstar-7b:latest",
+        "marco-o1",
+        "llama2",
+        "codellama"
+    }
 }
 # Global variable to store user chats
 user_chats = {}
@@ -163,6 +173,7 @@ def generate_response(message, history, personality, ollama_model):
         })
         
         # Generate response using ollama.chat
+        progress = gr.Progress()
         for chunk in ollama.chat(
             model=AVAILABLE_MODELS[ollama_model],
             messages=messages,
@@ -172,7 +183,7 @@ def generate_response(message, history, personality, ollama_model):
                 break
             if 'message' in chunk:
                 response += chunk['message']['content']
-                yield response  # Important: yield the response as it's generated     
+                yield response   
     
     except Exception as e:
         logging.error(f"Error generating response: {str(e)}")
@@ -282,6 +293,21 @@ def create_user_interface():
     with gr.Blocks(css=custom_css) as user_interface:
         gr.Markdown("# Earthship AI")
         
+        # Enable Gradio's built-in queue
+        user_interface.queue(
+            default_concurrency_limit=5,  # Number of simultaneous requests
+            max_size=20,  # Maximum number of requests in queue
+            api_open=True
+            )
+        
+        # Optional: Add queue status indicator
+        queue_status = gr.Markdown("Queue Status: Ready")
+        
+        def update_queue_status(request):
+            """Track queue status"""
+            queue_size = user_interface.queue.queue.qsize()
+            return f"Queue Status: {queue_size} waiting requests"
+        
         login_info = gr.State(value={"username": "", "password": "", "logged_in": False})
         with gr.Group() as login_group:
             with gr.Column():
@@ -303,8 +329,8 @@ def create_user_interface():
                         interactive=True
                     )
                     model = gr.Dropdown(
-                        choices=list(AVAILABLE_MODELS.keys()),
-                        value="marco-o1",
+                        choices=list(MODEL_DISPLAY_NAMES.keys()),  # Use display names instead
+                        value="Vietai",  # Set default to Vietai
                         label="Chọn mô hình AI",
                         interactive=True
                     )
@@ -323,9 +349,15 @@ def create_user_interface():
                     with gr.Row():
                         clear = gr.Button("Xóa lịch sử trò chuyện")
                         stop = gr.Button("Dừng tạo câu trả lời")
+         # Update the queue status periodically
+        def update_queue_status():
+            queue_size = request_queue.queue.qsize()
+            active_users = len(request_queue.active_users)
+            return f"Queue Status: {queue_size} waiting, {active_users} active"
+
                         
-            user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
-            bot_avatar = gr.Image(label="Bot Avatar", type="filepath", visible=False)
+        user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
+        bot_avatar = gr.Image(label="Bot Avatar", type="filepath", visible=False)
         def handle_create_user(username, password):
             result = create_new_user(username, password)
             return [
@@ -435,12 +467,12 @@ def create_user_interface():
         def bot_response(history, login_info, personality, model):
             if not history:
                 return history or []
-        
+
             user_message = history[-1][0]
             bot_message = ""
             try:
-                # Pass the selected model name (converted from display name to Ollama model name)
-                ollama_model = AVAILABLE_MODELS[model]
+                # Convert display name to technical model name if it exists in mapping
+                ollama_model = MODEL_DISPLAY_NAMES.get(model, model)
                 for chunk in generate_response(user_message, history[:-1], personality, ollama_model):
                     new_content = chunk[len(bot_message):]  # Get only the new content
                     bot_message = chunk  # Update the full bot message
@@ -532,9 +564,9 @@ master_interface = create_master_interface()
 
 # Launch user interface with CORS configuration
 user_interface.launch(
-    server_name="0.0.0.0",  # Changed from 127.0.0.1 to allow external connections
+    server_name="127.0.0.1",  # Changed from 127.0.0.1 to allow external connections
     server_port=7871,
-    share=True,
+    share=False,
 )
 
 # Launch master interface
