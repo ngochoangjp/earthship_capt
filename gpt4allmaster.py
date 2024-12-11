@@ -200,26 +200,32 @@ def create_user_interface():
             api_open=True
         )
         
-        login_info = gr.State(value={"username": "", "password": "", "logged_in": False, "is_admin": False})
+        # State for login info
+        login_info = gr.State({"username": "", "password": "", "logged_in": False, "is_admin": False})
+        
+        # State for chat settings
+        chat_settings = gr.State({"use_internet": False, "show_citations": False})
+        
+        current_chat_id = gr.State("")
         
         # Add avatar components
         user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
         bot_avatar = gr.Image(label="Bot Avatar", type="filepath", visible=False)
         
-        # Login Tab
-        with gr.Tab("Đăng nhập") as login_tab:
-            with gr.Column():
-                gr.Markdown("## Đăng nhập")
-                username = gr.Textbox(label="Tên đăng nhập", placeholder="Nhập tên đăng nhập")
-                password = gr.Textbox(label="Mật khẩu", placeholder="Nhập mật khẩu", type="password")
-                with gr.Row():
-                    login_button = gr.Button("Đăng nhập", variant="primary")
-                    create_user_button = gr.Button("Tạo người dùng mới")
-                login_message = gr.Markdown(visible=False)
+        # Login interface
+        login_container = gr.Column(visible=True)
+        with login_container:
+            gr.Markdown("## Đăng nhập")
+            username = gr.Textbox(label="Tên đăng nhập", placeholder="Nhập tên đăng nhập")
+            password = gr.Textbox(label="Mật khẩu", placeholder="Nhập mật khẩu", type="password")
+            with gr.Row():
+                login_button = gr.Button("Đăng nhập", variant="primary")
+                create_user_button = gr.Button("Tạo người dùng mới")
+            login_message = gr.Markdown(visible=False)
 
-        # Admin panel (initially hidden)
-        admin_panel = gr.Tab("Captain View", visible=False)
-        with admin_panel:
+        # Admin interface (initially hidden)
+        admin_container = gr.Column(visible=False)
+        with admin_container:
             gr.Markdown("## Captain View")
             with gr.Row():
                 user_selector = gr.Dropdown(choices=[], label="Select User", interactive=True)
@@ -227,8 +233,8 @@ def create_user_interface():
             admin_chatbot = gr.Chatbot(elem_id="admin_chatbot", height=500)
         
         # Chat interface (initially hidden)
-        chat_tab = gr.Tab("Trò chuyện", visible=False)
-        with chat_tab:
+        chat_container = gr.Column(visible=False)
+        with chat_container:
             with gr.Row():
                 # Left column for user profile
                 with gr.Column(scale=1):
@@ -245,7 +251,35 @@ def create_user_interface():
 
                 # Right column for chat
                 with gr.Column(scale=3):
-                    # Chat controls at the top
+                    # Top controls
+                    with gr.Row():
+                        with gr.Column(scale=3):
+                            with gr.Row():
+                                personality = gr.Dropdown(
+                                    choices=list(PERSONALITIES.keys()),
+                                    value="Trợ lý",
+                                    label="Chọn tính cách AI",
+                                    interactive=True
+                                )
+                                model = gr.Dropdown(
+                                    choices=list(MODEL_DISPLAY_NAMES.keys()),
+                                    value="Vietai",
+                                    label="Chọn mô hình AI",
+                                    interactive=True
+                                )
+                        with gr.Column(scale=1):
+                            with gr.Row():
+                                history_button = gr.Button("📜 Lịch sử", scale=1)
+                    
+                    # Chat history dropdown (initially hidden)
+                    chat_history_list = gr.Dropdown(
+                        label="Lịch sử trò chuyện",
+                        choices=[],
+                        visible=False,
+                        interactive=True
+                    )
+                    
+                    # Settings
                     with gr.Row():
                         internet_toggle = gr.Checkbox(
                             label="Kết nối Internet",
@@ -260,21 +294,10 @@ def create_user_interface():
                             visible=True
                         )
                     
-                    with gr.Row():
-                        personality = gr.Dropdown(
-                            choices=list(PERSONALITIES.keys()),
-                            value="Trợ lý",
-                            label="Chọn tính cách AI",
-                            interactive=True
-                        )
-                        model = gr.Dropdown(
-                            choices=list(MODEL_DISPLAY_NAMES.keys()),
-                            value="Vietai",
-                            label="Chọn mô hình AI",
-                            interactive=True
-                        )
+                    # Chat area
+                    chatbot = gr.Chatbot(elem_id="chatbot", height=400)
                     
-                    chatbot = gr.Chatbot(elem_id="chatbot", height=500)
+                    # Message input and buttons
                     with gr.Column():
                         msg = gr.Textbox(
                             label="Nhập tin nhắn của bạn",
@@ -283,23 +306,28 @@ def create_user_interface():
                         )
                         with gr.Row():
                             send = gr.Button("Gửi", variant="primary")
-                            clear = gr.Button("Xóa lịch sử trò chuyện")
+                            new_chat = gr.Button("Tạo cuộc trò chuyện mới")
                             stop = gr.Button("Dừng tạo câu trả lời")
+                    
+                    # Premade prompts section
+                    gr.Markdown("### Thư viện công cụ")
+                    with gr.Row():
+                        prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
 
         # Add click handlers for login and create user buttons
         login_button.click(
             fn=login,
             inputs=[username, password],
             outputs=[
-                login_tab,    # login tab
-                chat_tab,    # chat tab
-                login_info,  # login info state
-                chatbot,     # chatbot
-                user_avatar, # user avatar
-                bot_avatar,  # bot avatar
-                login_message,  # login message
-                user_selector,  # user list for admin
-                admin_panel,    # admin panel
+                login_container,  # login container
+                chat_container,   # chat container
+                admin_container,  # admin container
+                login_info,      # login info state
+                chatbot,         # chatbot
+                user_avatar,     # user avatar
+                bot_avatar,      # bot avatar
+                login_message,   # login message
+                user_selector,   # user list for admin
             ]
         )
 
@@ -307,15 +335,15 @@ def create_user_interface():
             fn=create_new_user,
             inputs=[username, password],
             outputs=[
-                login_tab,    # login tab
-                chat_tab,    # chat tab
-                login_info,  # login info state
-                chatbot,     # chatbot
-                user_avatar, # user avatar
-                bot_avatar,  # bot avatar
-                login_message,  # login message
-                user_selector,  # user list for admin
-                admin_panel,    # admin panel
+                login_container,  # login container
+                chat_container,   # chat container
+                admin_container,  # admin container
+                login_info,      # login info state
+                chatbot,         # chatbot
+                user_avatar,     # user avatar
+                bot_avatar,      # bot avatar
+                login_message,   # login message
+                user_selector,   # user list for admin
             ]
         )
 
@@ -340,8 +368,56 @@ def create_user_interface():
             outputs=chatbot
         )
 
-        clear.click(fn=clear_chat, inputs=[login_info], outputs=[chatbot])
-        stop.click(fn=stop_gen)
+        # Add handlers for new chat and history
+        def toggle_history():
+            return gr.update(visible=True)
+        
+        def load_chat_history_list(login_info):
+            if not login_info["logged_in"]:
+                return gr.update(choices=[], visible=False)
+            chats = get_user_chats(login_info["username"])
+            return gr.update(
+                choices=[[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats],
+                visible=True
+            )
+        
+        def start_new_chat(login_info):
+            if not login_info["logged_in"]:
+                return "", []
+            chat_id, _ = create_new_chat(login_info["username"])
+            return chat_id, []
+
+        def load_selected_chat(login_info, selected_chat):
+            if not login_info["logged_in"] or not selected_chat:
+                return []
+            chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
+            return load_chat_history(login_info["username"], chat_id)
+
+        history_button.click(
+            fn=load_chat_history_list,
+            inputs=[login_info],
+            outputs=[chat_history_list]
+        )
+
+        new_chat.click(
+            fn=start_new_chat,
+            inputs=[login_info],
+            outputs=[current_chat_id, chatbot]
+        )
+
+        chat_history_list.change(
+            fn=load_selected_chat,
+            inputs=[login_info, chat_history_list],
+            outputs=[chatbot]
+        )
+
+        # Add handlers for premade prompts
+        for button, prompt_name in zip(prompt_buttons, PREMADE_PROMPTS.keys()):
+            button.click(
+                fn=lambda x: PREMADE_PROMPTS[x],
+                inputs=[gr.State(prompt_name)],
+                outputs=[msg]
+            )
 
         # Add handlers for toggles
         internet_toggle.change(fn=toggle_internet, inputs=[internet_toggle])
@@ -538,15 +614,15 @@ def login(username, password):
     """Handle user login"""
     if not username or not password:
         return (
-            gr.update(visible=True),  # login tab
-            gr.update(visible=False), # chat tab
+            gr.update(visible=True),   # login container
+            gr.update(visible=False),  # chat container
+            gr.update(visible=False),  # admin container
             {"username": "", "password": "", "logged_in": False, "is_admin": False},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=True, value="Vui lòng nhập tên đăng nhập và mật khẩu"),  # login message
             [],  # user list for admin
-            gr.update(visible=False)  # admin panel
         )
 
     if username == "admin" and password == DEFAULT_PASSWORD:
@@ -554,84 +630,84 @@ def login(username, password):
         user_files = [f for f in os.listdir(USER_DATA_FOLDER) if f.endswith('.json')]
         user_names = [os.path.splitext(f)[0] for f in user_files]
         return (
-            gr.update(visible=False),  # login tab
-            gr.update(visible=True),   # chat tab
+            gr.update(visible=False),  # login container
+            gr.update(visible=False),  # chat container
+            gr.update(visible=True),   # admin container
             {"username": username, "password": password, "logged_in": True, "is_admin": True},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=False),  # login message
             user_names,  # user list for admin
-            gr.update(visible=True)    # admin panel
         )
     
     user_data = load_user_data(username)
     if not user_data:
         return (
-            gr.update(visible=True),  # login tab
-            gr.update(visible=False), # chat tab
+            gr.update(visible=True),   # login container
+            gr.update(visible=False),  # chat container
+            gr.update(visible=False),  # admin container
             {"username": "", "password": "", "logged_in": False, "is_admin": False},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=True, value="Tên đăng nhập không tồn tại. Vui lòng tạo người dùng mới."),
             [],  # user list for admin
-            gr.update(visible=False)  # admin panel
         )
     
     if user_data.get("password") != password:
         return (
-            gr.update(visible=True),  # login tab
-            gr.update(visible=False), # chat tab
+            gr.update(visible=True),   # login container
+            gr.update(visible=False),  # chat container
+            gr.update(visible=False),  # admin container
             {"username": "", "password": "", "logged_in": False, "is_admin": False},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=True, value="Mật khẩu không đúng. Vui lòng thử lại."),
             [],  # user list for admin
-            gr.update(visible=False)  # admin panel
         )
 
     # Successful regular user login
     return (
-        gr.update(visible=False),  # login tab
-        gr.update(visible=True),   # chat tab
+        gr.update(visible=False),  # login container
+        gr.update(visible=True),   # chat container
+        gr.update(visible=False),  # admin container
         {"username": username, "password": password, "logged_in": True, "is_admin": False},
         user_data.get("chat_history", [])[-10:],  # chatbot
         user_data.get("user_avatar"),  # user avatar
         user_data.get("bot_avatar"),   # bot avatar
         gr.update(visible=False),  # login message
         [],  # user list for admin
-        gr.update(visible=False)  # admin panel
     )
 
 def create_new_user(username, password):
     """Create a new user account"""
     if not username or not password:
         return (
-            gr.update(visible=True),  # login tab
-            gr.update(visible=False), # chat tab
+            gr.update(visible=True),  # login container
+            gr.update(visible=False), # chat container
+            gr.update(visible=False),  # admin container
             {"username": "", "password": "", "logged_in": False, "is_admin": False},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=True, value="Tên đăng nhập và mật khẩu không được để trống."),
             [],  # user list for admin
-            gr.update(visible=False)  # admin panel
         )
     
     user_data = load_user_data(username)
     if user_data:
         return (
-            gr.update(visible=True),  # login tab
-            gr.update(visible=False), # chat tab
+            gr.update(visible=True),  # login container
+            gr.update(visible=False), # chat container
+            gr.update(visible=False),  # admin container
             {"username": "", "password": "", "logged_in": False, "is_admin": False},
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
             gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác."),
             [],  # user list for admin
-            gr.update(visible=False)  # admin panel
         )
     
     # Create new user data
@@ -647,15 +723,15 @@ def create_new_user(username, password):
     save_user_data(username, new_user_data)
     
     return (
-        gr.update(visible=True),  # login tab
-        gr.update(visible=False), # chat tab
+        gr.update(visible=True),  # login container
+        gr.update(visible=False), # chat container
+        gr.update(visible=False),  # admin container
         {"username": "", "password": "", "logged_in": False, "is_admin": False},
         [],  # chatbot
         None,  # user avatar
         None,  # bot avatar
         gr.update(visible=True, value="Tạo tài khoản thành công! Vui lòng đăng nhập."),
         [],  # user list for admin
-        gr.update(visible=False)  # admin panel
     )
 
 def user_msg(user_message, history, login_info):
