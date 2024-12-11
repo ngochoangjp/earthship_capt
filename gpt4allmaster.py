@@ -11,6 +11,7 @@ from pathlib import Path
 import requests
 from googlesearch import search
 from datetime import datetime
+import bcrypt  # For password hashing
 
 # Import prompts from prompts.py
 from prompts import PERSONALITIES, EXAMPLE_RESPONSES, PREMADE_PROMPTS
@@ -42,7 +43,16 @@ user_chats = {}
 # Internet connectivity settings
 INTERNET_ENABLED = False
 CITATION_ENABLED = False
+# Security: Hash passwords
+def hash_password(password):
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # Encode to Base64 string
+    hashed_password_string = base64.b64encode(hashed_password).decode('utf-8')
+    return hashed_password_string  # Return the string
 
+
+def verify_password(password, hashed_password):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 # Read Google CSE IDs from API_KEY.txt
 def read_api_keys():
     try:
@@ -206,9 +216,16 @@ def load_user_data(username):
     user_data_file = os.path.join(user_folder, "user_data.json")
     
     if os.path.exists(user_data_file):
-        try:
-            with open(user_data_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+        try:       
+            # ... loading chat history part
+            with open(user_data_file, 'r', encoding='utf-8') as f:
+                user_data = json.load(f)
+
+                # Check and correct the password if it's not base64 encoded
+                if "password" in user_data and not isinstance(user_data['password'], bytes) and '$2b$' not in user_data['password']:
+                    user_data['password'] = hash_password(user_data['password'])
+                    save_user_data(username, user_data)  # Save updated user data
+                return user_data
         except Exception as e:
             logging.error(f"Error loading user data: {e}")
     return {}
@@ -266,6 +283,25 @@ def load_selected_chat(login_info, selected_chat):
     chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
     
     return load_chat_history(login_info["username"], chat_id)
+def create_new_chat(username, title="Cuộc trò chuyện mới"):
+    """Create a new chat session with optional title"""
+    user_folder = get_user_folder(username)
+    chat_id = str(uuid.uuid4())
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    chat_file = os.path.join(user_folder, f"chat_{timestamp}_{chat_id[:8]}.json")
+
+    chat_data = {
+        "id": chat_id,
+        "timestamp": timestamp,
+        "title": title,  # Use provided title
+        "messages": []
+    }
+
+    with open(chat_file, "w", encoding="utf-8") as f:
+        json.dump(chat_data, f, ensure_ascii=False, indent=2)
+
+    return chat_id, chat_file
+
 
 def create_user_interface():
     with gr.Blocks(css=custom_css) as interface:
@@ -447,9 +483,13 @@ def create_user_interface():
         history_button.click(
             fn=load_chat_history_list,
             inputs=[login_info],
-            outputs=chat_history_list
+            outputs=[chat_history_list, chatbot, current_chat_id]  # Update chat list and clear chatbot
         )
-        
+        personality.change(
+            fn=lambda x, y: create_new_chat(y["username"], title=f"Cuộc trò chuyện với {x}"),  # Create new chat with personality name as title
+            inputs=[personality, login_info],
+            outputs=[chat_history_list, chatbot, current_chat_id]  # Update chat list and clear chatbot
+        )
         chat_history_list.change(
             fn=load_selected_chat,
             inputs=[login_info, chat_history_list],
@@ -639,7 +679,50 @@ Thông tin người dùng:
     except Exception as e:
         logging.error(f"Error generating response: {str(e)}")
         yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
+def load_chat_history_list(login_info):
+    """Load list of user's chat sessions, fixing history functionality"""
+    if not login_info.get("logged_in", False):
+        return gr.update(choices=[], visible=False)
 
+    chats = get_user_chats(login_info["username"])
+    chat_choices = [[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats]
+
+    return gr.update(choices=chat_choices, visible=True)
+
+
+def load_selected_chat(login_info, selected_chat, current_chat_id):
+    """Load messages from a selected chat session, updating current_chat_id"""
+    if not login_info.get("logged_in", False) or not selected_chat:
+        return [], None  # Return empty history and None for chat_id
+
+    chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
+    current_chat_id = chat_id
+    return load_chat_history(login_info["username"], chat_id), current_chat_id
+
+
+
+def user_msg(user_message, history, login_info, current_chat_id):  # Add current_chat_id as input
+    if not login_info.get("logged_in", False):
+        return "Vui lòng đăng nhập trước khi gửi tin nhắn.", history, None
+
+    if not user_message or not user_message.strip():
+        return "", history, current_chat_id # Don't change history or chat_id for empty messages
+
+
+    history.append([user_message, None])
+    return "", history, current_chat_id  # Return current_chat_id unchanged
+
+
+
+
+def bot_response(history, login_info, personality, model, current_chat_id): # Add current_chat_id
+    # ... (Existing bot_response code)
+
+        # ... inside the for chunk loop for generate_response
+
+            history[-1][1] = bot_message
+            save_chat_message(login_info["username"], current_chat_id, user_message, bot_message) # Save message with current_chat_id
+            yield history
 def stop_gen():
     global stop_generation
     stop_generation = True
@@ -656,7 +739,7 @@ def refresh_users():
     return gr.Dropdown(choices=user_names)
 
 def login(username, password):
-    """Handle user login"""
+    """Handle user login with bcrypt"""
     if not username or not password:
         return (
             gr.update(visible=True),   # login container
@@ -700,7 +783,7 @@ def login(username, password):
             [],  # user list for admin
         )
     
-    if user_data.get("password") != password:
+    if not verify_password(password, user_data.get("password")): # Verify password with bcrypt.
         return (
             gr.update(visible=True),   # login container
             gr.update(visible=False),  # chat container
@@ -754,16 +837,18 @@ def create_new_user(username, password):
             gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác."),
             [],  # user list for admin
         )
-    
-    # Create new user data
+    # Hash the password before saving
+    hashed_password = hash_password(password)
     new_user_data = {
         "username": username,
-        "password": password,
+        "password": hashed_password, # Store the hashed password
+        # ...
         "chat_history": [],
         "user_avatar": None,
         "bot_avatar": None
     }
-    
+    # Now store the Base64 encoded string:
+    new_user_data["password"] = hash_password(password)    
     # Save user data
     save_user_data(username, new_user_data)
     
@@ -778,7 +863,10 @@ def create_new_user(username, password):
         gr.update(visible=True, value="Tạo tài khoản thành công! Vui lòng đăng nhập."),
         [],  # user list for admin
     )
-
+# In the verify_password function, decode the Base64 string:
+def verify_password(password, hashed_password_string):
+    hashed_password_bytes = base64.b64decode(hashed_password_string.encode('utf-8')) # Add .encode('utf-8') to the argument
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password_bytes)
 def user_msg(user_message, history, login_info):
     if not login_info.get("logged_in", False):
         return "Vui lòng đăng nhập trước khi gửi tin nhắn.", history
