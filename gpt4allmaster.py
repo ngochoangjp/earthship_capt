@@ -100,54 +100,103 @@ def get_user_chats(username):
     chat_files = []
     try:
         for file in os.listdir(user_folder):
-            if file.endswith(".json"):
-                with open(os.path.join(user_folder, file), "r", encoding="utf-8") as f:
-                    chat_data = json.load(f)
-                    chat_files.append({
-                        "id": chat_data["id"],
-                        "title": chat_data["title"],
-                        "timestamp": chat_data["timestamp"],
-                        "filename": file
-                    })
+            # Only process files that start with 'chat_' and end with '.json'
+            if file.startswith("chat_") and file.endswith(".json"):
+                file_path = os.path.join(user_folder, file)
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        chat_data = json.load(f)
+                        # Ensure required keys exist
+                        if all(key in chat_data for key in ["id", "title", "timestamp"]):
+                            chat_files.append({
+                                "id": chat_data["id"],
+                                "title": chat_data["title"],
+                                "timestamp": chat_data["timestamp"],
+                                "filename": file
+                            })
+                except json.JSONDecodeError:
+                    logging.error(f"Error decoding JSON in file: {file}")
+                except KeyError as e:
+                    logging.error(f"Missing key in chat file {file}: {e}")
     except Exception as e:
         logging.error(f"Error loading chat history: {e}")
-        return []
     
     return sorted(chat_files, key=lambda x: x["timestamp"], reverse=True)
 
 def save_chat_message(username, chat_id, message, response):
-    """Save chat message to specific chat file"""
+    """Save chat message to specific chat file and update user chat history"""
     user_folder = get_user_folder(username)
-    chat_files = [f for f in os.listdir(user_folder) if f.endswith(".json")]
+    chat_files = [f for f in os.listdir(user_folder) if f.endswith(".json") and "chat_" in f]
     
+    # Find the matching chat file
+    matching_file = None
     for file in chat_files:
-        with open(os.path.join(user_folder, file), "r", encoding="utf-8") as f:
+        file_path = os.path.join(user_folder, file)
+        with open(file_path, "r", encoding="utf-8") as f:
             chat_data = json.load(f)
             if chat_data["id"] == chat_id:
-                chat_data["messages"].append({
-                    "user": message,
-                    "assistant": response,
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-                
-                # Update chat title if it's the first message
-                if len(chat_data["messages"]) == 1:
-                    chat_data["title"] = message[:30] + "..." if len(message) > 30 else message
-                
-                with open(os.path.join(user_folder, file), "w", encoding="utf-8") as f:
-                    json.dump(chat_data, f, ensure_ascii=False, indent=2)
+                matching_file = file_path
                 break
+    
+    # If no matching file found, create a new one
+    if not matching_file:
+        chat_id, matching_file = create_new_chat(username)
+    
+    # Load and update chat data
+    with open(matching_file, "r", encoding="utf-8") as f:
+        chat_data = json.load(f)
+    
+    # Add message to chat data
+    chat_data["messages"].append({
+        "user": message,
+        "assistant": response,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    
+    # Update chat title if it's the first message
+    if len(chat_data["messages"]) == 1:
+        chat_data["title"] = (message[:30] + "...") if len(message) > 30 else message
+    
+    # Save updated chat data
+    with open(matching_file, "w", encoding="utf-8") as f:
+        json.dump(chat_data, f, ensure_ascii=False, indent=2)
+    
+    # Update user's chat history in user_data.json
+    user_data_path = os.path.join(user_folder, "user_data.json")
+    with open(user_data_path, "r", encoding="utf-8") as f:
+        user_data = json.load(f)
+    
+    # Ensure chat_history exists and is a list
+    if "chat_history" not in user_data:
+        user_data["chat_history"] = []
+    
+    # Add or update chat history entry
+    chat_entry = [message, response]
+    if chat_entry not in user_data["chat_history"]:
+        user_data["chat_history"].append(chat_entry)
+    
+    # Save updated user data
+    with open(user_data_path, "w", encoding="utf-8") as f:
+        json.dump(user_data, f, ensure_ascii=False, indent=2)
+    
+    return chat_id
 
 def load_chat_history(username, chat_id):
     """Load messages from specific chat"""
     user_folder = get_user_folder(username)
-    chat_files = [f for f in os.listdir(user_folder) if f.endswith(".json")]
+    chat_files = [f for f in os.listdir(user_folder) if f.startswith("chat_") and f.endswith(".json")]
     
     for file in chat_files:
-        with open(os.path.join(user_folder, file), "r", encoding="utf-8") as f:
-            chat_data = json.load(f)
-            if chat_data["id"] == chat_id:
-                return [(msg["user"], msg["assistant"]) for msg in chat_data["messages"]]
+        file_path = os.path.join(user_folder, file)
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                chat_data = json.load(f)
+                if chat_data.get("id") == chat_id:
+                    # Ensure messages exist and are in the correct format
+                    messages = chat_data.get("messages", [])
+                    return [(msg.get("user", ""), msg.get("assistant", "")) for msg in messages]
+        except (json.JSONDecodeError, IOError) as e:
+            logging.error(f"Error loading chat file {file}: {e}")
     
     return []
 
@@ -188,6 +237,35 @@ custom_css = """
     text-align: left;
 }
 """
+
+def load_chat_history_list(login_info):
+    """Load list of user's chat sessions"""
+    if not login_info.get("logged_in", False):
+        return gr.update(choices=[], visible=False)
+    
+    # Retrieve chat sessions for the logged-in user
+    chats = get_user_chats(login_info["username"])
+    
+    # Create choices with chat ID and title
+    chat_choices = [
+        [chat["id"], f"{chat['title']} ({chat['timestamp']})"] 
+        for chat in chats
+    ]
+    
+    return gr.update(
+        choices=chat_choices,
+        visible=True
+    )
+
+def load_selected_chat(login_info, selected_chat):
+    """Load messages from a selected chat session"""
+    if not login_info.get("logged_in", False) or not selected_chat:
+        return []
+    
+    # Extract chat ID, handling both list and string inputs
+    chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
+    
+    return load_chat_history(login_info["username"], chat_id)
 
 def create_user_interface():
     with gr.Blocks(css=custom_css) as interface:
@@ -269,7 +347,18 @@ def create_user_interface():
                                 )
                         with gr.Column(scale=1):
                             with gr.Row():
-                                history_button = gr.Button("📜 Lịch sử", scale=1)
+                                internet_toggle = gr.Checkbox(
+                                    label="Kết nối Internet",
+                                    value=False,
+                                    interactive=True,
+                                    visible=True
+                                )
+                                citation_toggle = gr.Checkbox(
+                                    label="Hiển thị nguồn trích dẫn",
+                                    value=False,
+                                    interactive=True,
+                                    visible=True
+                                )
                     
                     # Chat history dropdown (initially hidden)
                     chat_history_list = gr.Dropdown(
@@ -279,35 +368,26 @@ def create_user_interface():
                         interactive=True
                     )
                     
-                    # Settings
+                    # Chatbot
+                    chatbot = gr.Chatbot(
+                        elem_id="chatbot", 
+                        height=500, 
+                        show_label=False
+                    )
+                    
+                    # Prompt input
+                    msg = gr.Textbox(
+                        label="Nhập câu hỏi của bạn", 
+                        placeholder="Nhập câu hỏi của bạn tại đây..."
+                    )
+                    
+                    # Bottom row for buttons
                     with gr.Row():
-                        internet_toggle = gr.Checkbox(
-                            label="Kết nối Internet",
-                            value=False,
-                            interactive=True,
-                            visible=True
-                        )
-                        citation_toggle = gr.Checkbox(
-                            label="Hiển thị nguồn trích dẫn",
-                            value=False,
-                            interactive=True,
-                            visible=True
-                        )
-                    
-                    # Chat area
-                    chatbot = gr.Chatbot(elem_id="chatbot", height=400)
-                    
-                    # Message input and buttons
-                    with gr.Column():
-                        msg = gr.Textbox(
-                            label="Nhập tin nhắn của bạn",
-                            placeholder="Nhập tin nhắn và nhấn Enter",
-                            elem_id="msg"
-                        )
-                        with gr.Row():
-                            send = gr.Button("Gửi", variant="primary")
-                            new_chat = gr.Button("Tạo cuộc trò chuyện mới")
-                            stop = gr.Button("Dừng tạo câu trả lời")
+                        with gr.Column(scale=3):
+                            submit = gr.Button("Gửi")
+                            clear = gr.Button("Xóa")
+                        with gr.Column(scale=1):
+                            history_button = gr.Button("📜 Lịch sử")
                     
                     # Premade prompts section
                     gr.Markdown("### Thư viện công cụ")
@@ -348,7 +428,7 @@ def create_user_interface():
         )
 
         # Add handlers for chat functionality
-        msg.submit(
+        submit.click(
             fn=user_msg,
             inputs=[msg, chatbot, login_info],
             outputs=[msg, chatbot]
@@ -358,57 +438,22 @@ def create_user_interface():
             outputs=chatbot
         )
 
-        send.click(
-            fn=user_msg,
-            inputs=[msg, chatbot, login_info],
-            outputs=[msg, chatbot]
-        ).then(
-            fn=bot_response,
-            inputs=[chatbot, login_info, personality, model],
+        clear.click(
+            fn=lambda: None, 
+            inputs=None, 
             outputs=chatbot
         )
-
-        # Add handlers for new chat and history
-        def toggle_history():
-            return gr.update(visible=True)
         
-        def load_chat_history_list(login_info):
-            if not login_info["logged_in"]:
-                return gr.update(choices=[], visible=False)
-            chats = get_user_chats(login_info["username"])
-            return gr.update(
-                choices=[[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats],
-                visible=True
-            )
-        
-        def start_new_chat(login_info):
-            if not login_info["logged_in"]:
-                return "", []
-            chat_id, _ = create_new_chat(login_info["username"])
-            return chat_id, []
-
-        def load_selected_chat(login_info, selected_chat):
-            if not login_info["logged_in"] or not selected_chat:
-                return []
-            chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
-            return load_chat_history(login_info["username"], chat_id)
-
         history_button.click(
             fn=load_chat_history_list,
             inputs=[login_info],
-            outputs=[chat_history_list]
+            outputs=chat_history_list
         )
-
-        new_chat.click(
-            fn=start_new_chat,
-            inputs=[login_info],
-            outputs=[current_chat_id, chatbot]
-        )
-
+        
         chat_history_list.change(
             fn=load_selected_chat,
             inputs=[login_info, chat_history_list],
-            outputs=[chatbot]
+            outputs=chatbot
         )
 
         # Add handlers for premade prompts
@@ -828,7 +873,8 @@ def search_internet(query, cse_id):
 if __name__ == "__main__":
     interface = create_user_interface()
     interface.launch(
-        server_name="127.0.0.1",
-        server_port=7871,
+        server_port=7872,  # Use a different port
         share=False,
+        debug=True,
+        show_error=True
     )
