@@ -46,8 +46,8 @@ def read_api_keys():
             lines = f.readlines()
             api_keys = {}
             for line in lines:
-                if '=' in line:
-                    key, value = line.strip().split('=')
+                if ':' in line:
+                    key, value = line.strip().split(':', 1)
                     api_keys[key] = value
             return api_keys
     except Exception as e:
@@ -915,31 +915,3 @@ user_interface.launch(
     server_port=7871,
     share=False,
 )
-
-def search_internet(query, cse_id):
-    """Search the internet using Google Custom Search Engine"""
-    if not INTERNET_ENABLED:
-        return "Kết nối internet hiện đang tắt. Vui lòng bật kết nối internet để sử dụng tính năng này."
-    
-    try:
-        results = []
-        # Increase number of search results for better accuracy
-        for url in search(query, num_results=5, custom_search_engine_id=cse_id):
-            results.append(url)
-        
-        # Analyze multiple sources for better reliability
-        reliable_sources = [url for url in results if any(domain in url.lower() for domain in [
-            '.edu', '.gov', '.org', 'wikipedia.org', 'research', 'academic',
-            'plumvillage.org', 'langmai.org', 'osho.com', 'thuvienhoasen.org'
-        ])]
-        
-        if reliable_sources:
-            results = reliable_sources[:3]  # Prioritize reliable sources
-        else:
-            results = results[:3]  # Use top 3 results if no reliable sources found
-        
-        if CITATION_ENABLED:
-            return "\n\nNguồn tham khảo:\n" + "\n".join([f"- {url}" for url in results])
-        return ""
-    except Exception as e:
-        return f"Lỗi tìm kiếm internet: {str(e)}"
