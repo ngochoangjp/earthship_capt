@@ -651,10 +651,10 @@ def create_user_interface():
                 # Left column for user profile
                 with gr.Column(scale=1):
                     gr.Markdown("## Thông tin cá nhân")
-                    gr.Markdown("AI sẽ lưu lại thông tin của bạn để hiểu bạn hơn(nếu cung cấp).")
-                    real_name = gr.Textbox(label="Họ và tên", placeholder="Nhập họ tên của bạn")
+                    gr.Markdown("AI lưu lại thông tin của bạn chỉ để hiểu bạn hơn.")
+                    real_name = gr.Textbox(label="Họ và tên", placeholder="Nhập tên của bạn")
                     age = gr.Number(label="Tuổi")
-                    gender = gr.Radio(choices=["Nam", "Nữ", "Khác"], label="Giới tính")
+                    gender = gr.Textbox(label="Giới tính", placeholder="Nhập giới tính của bạn")
                     vegan_checkbox = gr.Checkbox(label="Ăn chay", value=False)
                     height = gr.Number(label="Chiều cao (cm)")
                     weight = gr.Number(label="Cân nặng (kg)")
@@ -682,7 +682,17 @@ def create_user_interface():
 
                     password_input.submit(
                         fn=lambda pwd, info: (
-                            [gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)]
+                            [gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("real_name", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("age", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("gender", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("height", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("weight", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("job", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("muscle_percentage", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("fat_percentage", "")),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("vegan", False)),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("personality", ""))] +
+                            [gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)]
                             if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
                             else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]
                         ),
@@ -768,7 +778,7 @@ def create_user_interface():
                     "personality": personality_text
                 }
                 save_user_data(username, user_data)
-                return [gr.update(visible=False), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(visible=True)]
+                return [gr.update(visible=False), gr.update(value=""), gr.update(value=None), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(visible=True)]
 
         # ************************************************************************
         # *                     Load Profile Info Function                      *
@@ -776,7 +786,7 @@ def create_user_interface():
     
         def load_profile_info(login_info):
             if not login_info["logged_in"]:
-                return [gr.update(value="") for _ in range(10)]
+                return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
 
             username = login_info["username"]
             user_data = load_user_data(username)
@@ -802,18 +812,18 @@ def create_user_interface():
         """.encode('utf-8').decode('utf-8')
 
                 return [
-                    profile.get("real_name", ""),
-                    profile.get("age", ""),
-                    profile.get("gender", ""),
-                    profile.get("height", ""),
-                    profile.get("weight", ""),
-                    profile.get("job", ""),
-                    profile.get("muscle_percentage", ""),
-                    profile.get("fat_percentage", ""),
-                    profile.get("vegan", False),
-                    profile.get("personality", "")
-                ]
-            return [gr.update(value="") for _ in range(10)]
+                    gr.update(value=profile.get("real_name", "")),
+                    gr.update(value=profile.get("age", "")),
+                    gr.update(value=profile.get("gender", None)),
+                    gr.update(value=profile.get("height", "")),
+                    gr.update(value=profile.get("weight", "")),
+                    gr.update(value=profile.get("job", "")),
+                    gr.update(value=profile.get("muscle_percentage", "")),
+                    gr.update(value=profile.get("fat_percentage", "")),
+                    gr.update(value=profile.get("vegan", False)),
+                    gr.update(value=profile.get("personality", ""))
+                ] + [gr.update(choices=list(PERSONALITIES.keys())), gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))]
+            return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
 
         # ************************************************************************
         # *                Generate Chat Title Function                     *
@@ -1096,7 +1106,8 @@ def create_user_interface():
                     None,  # Reset current chat ID
                     gr.update(choices=[]),  # Clear chat history dropdown
                     gr.update(),  # Empty update for personality
-                    gr.update()  # Empty update for model
+                    gr.update(),  # Empty update for model
+                    gr.update(visible=False), # confirm_button
                 )
 
             # User exists, check password
@@ -1140,7 +1151,8 @@ def create_user_interface():
                     last_chat_id,  # Set current chat ID
                     gr.update(choices=chat_histories),  # Update chat history dropdown
                     gr.update(choices=list(PERSONALITIES.keys())),  # Update personality choices
-                    gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))  # Update model choices
+                    gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # Update model choices
+                    gr.update(visible=False) # confirm_button
                 )
             else:
                 # Invalid password
@@ -1157,7 +1169,8 @@ def create_user_interface():
                     None,
                     [],
                     gr.update(),  # Empty update for personality
-                    gr.update()  # Empty update for model
+                    gr.update(),   # Empty update for model
+                    gr.update(visible=False) # confirm_button
                 )
         # ************************************************************************
         # *                     Connect Admin Panel Components                 *
@@ -1182,11 +1195,8 @@ def create_user_interface():
                 user_selector, admin_panel, current_chat_id, chat_history_dropdown,
                 personality, model
             ]
-        ).then(
-            fn=load_profile_info,
-            inputs=[login_info],
-            outputs=[real_name, age, gender, height, weight, job, muscle_percentage, fat_percentage, vegan_checkbox, personality_text]
         )
+            
 
         # ************************************************************************
         # *                         User Message Function                      *
