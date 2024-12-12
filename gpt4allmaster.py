@@ -38,12 +38,19 @@ AVAILABLE_MODELS = {
     ]
 }
 # Global variable to store user chats
-user_chats = {}
+# This is not really needed anymore with the improved file handling
+# user_chats = {}
 
 # Internet connectivity settings
 INTERNET_ENABLED = False
 CITATION_ENABLED = False
 # Security: Hash passwords
+# User data folder
+USER_DATA_FOLDER = "user_data"
+os.makedirs(USER_DATA_FOLDER, exist_ok=True)
+
+# Password hashing functions (using bcrypt)
+
 def hash_password(password):
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     # Encode to Base64 string
@@ -51,26 +58,35 @@ def hash_password(password):
     return hashed_password_string  # Return the string
 
 
-def verify_password(password, hashed_password):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
-# Read Google CSE IDs from API_KEY.txt
+def verify_password(password, hashed_password_string):
+    hashed_password_bytes = base64.b64decode(hashed_password_string.encode('utf-8'))
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password_bytes)
+
+
+
+# --- API Key Handling (for Google Custom Search, etc.) ---
 def read_api_keys():
     try:
-        with open('API_KEY.txt', 'r') as f:
+        with open('API_KEY.txt', 'r', encoding='utf-8') as f:
             lines = f.readlines()
             api_keys = {}
-            for line in lines:
+            for line in f:
                 if '=' in line:
                     key, value = line.strip().split('=')
                     api_keys[key] = value
             return api_keys
+    except FileNotFoundError:
+        logging.warning("API_KEY.txt not found. Internet search and some features may not work.")
+        return {}
     except Exception as e:
         logging.error(f"Error reading API keys: {e}")
         return {}
 
+
 api_keys = read_api_keys()
 GOOGLE_CSE_ID = api_keys.get('Google_CSE_ID', '').split('cx=')[-1] if 'Google_CSE_ID' in api_keys else ""
 OSHO_GOOGLE_CSE_ID = api_keys.get('Osho_Google_CSE_ID', '').split('cx=')[-1] if 'Osho_Google_CSE_ID' in api_keys else ""
+
 
 # Global variable to control generation
 stop_generation = False
@@ -79,30 +95,33 @@ stop_generation = False
 USER_DATA_FOLDER = "user_data"
 os.makedirs(USER_DATA_FOLDER, exist_ok=True)
 
+
 def get_user_folder(username):
     """Get or create user's data folder"""
     user_folder = os.path.join(USER_DATA_FOLDER, username)
     os.makedirs(user_folder, exist_ok=True)
     return user_folder
 
-def create_new_chat(username):
-    """Create a new chat session"""
+
+def create_new_chat(username, title="Cuộc trò chuyện mới"):
+    """Create a new chat session with optional title"""
     user_folder = get_user_folder(username)
     chat_id = str(uuid.uuid4())
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     chat_file = os.path.join(user_folder, f"chat_{timestamp}_{chat_id[:8]}.json")
-    
+
     chat_data = {
         "id": chat_id,
         "timestamp": timestamp,
-        "title": "Cuộc trò chuyện mới",
+        "title": title,  # Use provided title
         "messages": []
     }
-    
+
     with open(chat_file, "w", encoding="utf-8") as f:
         json.dump(chat_data, f, ensure_ascii=False, indent=2)
-    
+
     return chat_id, chat_file
+
 
 def get_user_chats(username):
     """Get list of user's chat sessions"""
@@ -128,16 +147,19 @@ def get_user_chats(username):
                     logging.error(f"Error decoding JSON in file: {file}")
                 except KeyError as e:
                     logging.error(f"Missing key in chat file {file}: {e}")
-    except Exception as e:
-        logging.error(f"Error loading chat history: {e}")
-    
-    return sorted(chat_files, key=lambda x: x["timestamp"], reverse=True)
+                except Exception as e:
+                    logging.error(f"Error loading chat history: {e}")
+
+        return sorted(chat_files, key=lambda x: x["timestamp"], reverse=True)
+    except FileNotFoundError:
+        return []  # Return empty list if user folder doesn't exist
+
 
 def save_chat_message(username, chat_id, message, response):
     """Save chat message to specific chat file and update user chat history"""
     user_folder = get_user_folder(username)
     chat_files = [f for f in os.listdir(user_folder) if f.endswith(".json") and "chat_" in f]
-    
+
     # Find the matching chat file
     matching_file = None
     for file in chat_files:
@@ -147,7 +169,7 @@ def save_chat_message(username, chat_id, message, response):
             if chat_data["id"] == chat_id:
                 matching_file = file_path
                 break
-    
+
     # If no matching file found, create a new one
     if not matching_file:
         chat_id, matching_file = create_new_chat(username)
@@ -155,47 +177,30 @@ def save_chat_message(username, chat_id, message, response):
     # Load and update chat data
     with open(matching_file, "r", encoding="utf-8") as f:
         chat_data = json.load(f)
-    
+
     # Add message to chat data
     chat_data["messages"].append({
         "user": message,
         "assistant": response,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
-    
-    # Update chat title if it's the first message
-    if len(chat_data["messages"]) == 1:
+
+    # Update chat title if it's the first message and no title was explicitly set
+    if len(chat_data["messages"]) == 1 and chat_data["title"] == "Cuộc trò chuyện mới":
         chat_data["title"] = (message[:30] + "...") if len(message) > 30 else message
-    
+
     # Save updated chat data
     with open(matching_file, "w", encoding="utf-8") as f:
         json.dump(chat_data, f, ensure_ascii=False, indent=2)
-    
-    # Update user's chat history in user_data.json
-    user_data_path = os.path.join(user_folder, "user_data.json")
-    with open(user_data_path, "r", encoding="utf-8") as f:
-        user_data = json.load(f)
-    
-    # Ensure chat_history exists and is a list
-    if "chat_history" not in user_data:
-        user_data["chat_history"] = []
-    
-    # Add or update chat history entry
-    chat_entry = [message, response]
-    if chat_entry not in user_data["chat_history"]:
-        user_data["chat_history"].append(chat_entry)
-    
-    # Save updated user data
-    with open(user_data_path, "w", encoding="utf-8") as f:
-        json.dump(user_data, f, ensure_ascii=False, indent=2)
-    
+
     return chat_id
+
 
 def load_chat_history(username, chat_id):
     """Load messages from specific chat"""
     user_folder = get_user_folder(username)
     chat_files = [f for f in os.listdir(user_folder) if f.startswith("chat_") and f.endswith(".json")]
-    
+
     for file in chat_files:
         file_path = os.path.join(user_folder, file)
         try:
@@ -207,17 +212,16 @@ def load_chat_history(username, chat_id):
                     return [(msg.get("user", ""), msg.get("assistant", "")) for msg in messages]
         except (json.JSONDecodeError, IOError) as e:
             logging.error(f"Error loading chat file {file}: {e}")
-    
+
     return []
 
 def load_user_data(username):
     """Load user data from file"""
     user_folder = get_user_folder(username)
     user_data_file = os.path.join(user_folder, "user_data.json")
-    
+
     if os.path.exists(user_data_file):
-        try:       
-            # ... loading chat history part
+        try:
             with open(user_data_file, 'r', encoding='utf-8') as f:
                 user_data = json.load(f)
 
@@ -230,59 +234,61 @@ def load_user_data(username):
             logging.error(f"Error loading user data: {e}")
     return {}
 
+
+
 def save_user_data(username, user_data):
     """Save user data to file"""
     user_folder = get_user_folder(username)
     user_data_file = os.path.join(user_folder, "user_data.json")
-    
+
     with open(user_data_file, "w", encoding="utf-8") as f:
         json.dump(user_data, f, ensure_ascii=False, indent=2)
 
 # Define custom CSS
 custom_css = """
 .message {
-    padding: 10px;
-    margin: 5px;
-    border-radius: 10px;
+padding: 10px;
+margin: 5px;
+border-radius: 10px;
 }
 .user-message {
-    background-color: #e3f2fd;
-    text-align: right;
+background-color: #e3f2fd;
+text-align: right;
 }
 .bot-message {
-    background-color: #f5f5f5;
-    text-align: left;
+background-color: #f5f5f5;
+text-align: left;
 }
 """
 
 def load_chat_history_list(login_info):
     """Load list of user's chat sessions"""
     if not login_info.get("logged_in", False):
-        return gr.update(choices=[], visible=False)
-    
-    # Retrieve chat sessions for the logged-in user
+        return gr.update(choices=[], visible=False), None  # Also return None for current_chat_id
+
+    title = f"Cuộc trò chuyện với {personality}" if personality else "Cuộc trò chuyện mới"  # Improved title handling
+    chat_id, _ = create_new_chat(login_info["username"], title=title)
     chats = get_user_chats(login_info["username"])
     
     # Create choices with chat ID and title
-    chat_choices = [
-        [chat["id"], f"{chat['title']} ({chat['timestamp']})"] 
-        for chat in chats
-    ]
-    
+    chat_choices = [[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats]
+
     return gr.update(
         choices=chat_choices,
         visible=True
-    )
+    ), [], chat_id  # Return None when loading history list
 
-def load_selected_chat(login_info, selected_chat):
-    """Load messages from a selected chat session"""
+
+
+def load_selected_chat(login_info, selected_chat, current_chat_id):
+    """Load messages from a selected chat session, updating current_chat_id"""
     if not login_info.get("logged_in", False) or not selected_chat:
-        return []
-    
-    # Extract chat ID, handling both list and string inputs
+        return [], None  # Return empty history and None for chat_id
+
     chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
     
-    return load_chat_history(login_info["username"], chat_id)
+    current_chat_id = chat_id  # Update the current_chat_id state
+    return load_chat_history(login_info["username"], chat_id), current_chat_id
 def create_new_chat(username, title="Cuộc trò chuyện mới"):
     """Create a new chat session with optional title"""
     user_folder = get_user_folder(username)
@@ -306,21 +312,45 @@ def create_new_chat(username, title="Cuộc trò chuyện mới"):
 def create_user_interface():
     with gr.Blocks(css=custom_css) as interface:
         gr.Markdown("# Earthship AI")
-        
+        login_info = gr.State({"username": "", "password": "", "logged_in": False, "is_admin": False})
         # Enable Gradio's built-in queue
         interface.queue(
             default_concurrency_limit=5,
             max_size=20,
             api_open=True
         )
+        # State for current chat ID
+        current_chat_id = gr.State(None)  # Initialize as None
+        chat_history_list = gr.Dropdown(
+            label="Lịch sử trò chuyện",
+            choices=[],
+            visible=False,
+            interactive=True
+        )
+        # Correct the chat_history_list.change outputs
+        chatbot = gr.Chatbot(elem_id="chatbot", height=500, show_label=False)
+        current_chat_id = gr.State(None)
+        login_info = gr.State({"logged_in": False})  # Simplified login_info
+        chat_history_list = gr.Dropdown(label="Lịch sử trò chuyện", choices=[], visible=False, interactive=True)
+        new_chat_button = gr.Button("Tạo cuộc trò chuyện mới")
+        history_button = gr.Button("📜 Lịch sử")
+        msg = gr.Textbox(label="Nhập câu hỏi của bạn", placeholder="Nhập câu hỏi của bạn tại đây...")
+        # Now that chatbot is defined, we can add the change handler
+        chat_history_list.change(
+            fn=load_selected_chat,
+            inputs=[login_info, chat_history_list, current_chat_id],
+            outputs=[chatbot, current_chat_id]
+        )
+
+        new_chat_button.click(
+            fn=create_new_chat_and_update,
+            inputs=login_info,
+            outputs=[chat_history_list, chatbot, current_chat_id]
+        )
         
-        # State for login info
-        login_info = gr.State({"username": "", "password": "", "logged_in": False, "is_admin": False})
-        
+        current_chat_id = gr.State(None)
         # State for chat settings
         chat_settings = gr.State({"use_internet": False, "show_citations": False})
-        
-        current_chat_id = gr.State("")
         
         # Add avatar components
         user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
@@ -345,8 +375,19 @@ def create_user_interface():
                 user_selector = gr.Dropdown(choices=[], label="Select User", interactive=True)
                 refresh_button = gr.Button("Refresh User List")
             admin_chatbot = gr.Chatbot(elem_id="admin_chatbot", height=500)
-        
-        # Chat interface (initially hidden)
+        # Chatbot
+        chatbot = gr.Chatbot(elem_id="chatbot", height=500, show_label=False)
+        current_chat_id = gr.State(None)
+        login_info = gr.State({"logged_in": False})  # Simplified login_info
+        chat_history_list = gr.Dropdown(label="Lịch sử trò chuyện", choices=[], visible=False, interactive=True)
+        new_chat_button = gr.Button("Tạo cuộc trò chuyện mới")  # New chat button
+        history_button = gr.Button("📜 Lịch sử")
+        msg = gr.Textbox(label="Nhập câu hỏi của bạn", placeholder="Nhập câu hỏi của bạn tại đây...")  # Move msg here
+        submit = gr.Button("Gửi")
+        # ... other components like personality, model, internet_toggle, citation_toggle
+
+
+        # chat_container (Simplified)
         chat_container = gr.Column(visible=False)
         with chat_container:
             with gr.Row():
@@ -395,41 +436,39 @@ def create_user_interface():
                                     interactive=True,
                                     visible=True
                                 )
+                         
                     
-                    # Chat history dropdown (initially hidden)
-                    chat_history_list = gr.Dropdown(
-                        label="Lịch sử trò chuyện",
-                        choices=[],
-                        visible=False,
-                        interactive=True
-                    )
+                
                     
-                    # Chatbot
-                    chatbot = gr.Chatbot(
-                        elem_id="chatbot", 
-                        height=500, 
-                        show_label=False
-                    )
-                    
-                    # Prompt input
-                    msg = gr.Textbox(
-                        label="Nhập câu hỏi của bạn", 
-                        placeholder="Nhập câu hỏi của bạn tại đây..."
-                    )
-                    
-                    # Bottom row for buttons
-                    with gr.Row():
-                        with gr.Column(scale=3):
-                            submit = gr.Button("Gửi")
-                            clear = gr.Button("Xóa")
-                        with gr.Column(scale=1):
-                            history_button = gr.Button("📜 Lịch sử")
-                    
-                    # Premade prompts section
-                    gr.Markdown("### Thư viện công cụ")
-                    with gr.Row():
-                        prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
 
+            # NOW you can use login_info because it's defined
+            chat_history_list.change(
+                fn=load_selected_chat,
+                inputs=[login_info, chat_history_list, current_chat_id],
+                outputs=[chatbot, current_chat_id]
+            )              
+                    
+            # Prompt input
+            msg = gr.Textbox(
+                label="Nhập câu hỏi của bạn", 
+                placeholder="Nhập câu hỏi của bạn tại đây..."
+            )
+                    
+            # Bottom row for buttons
+            with gr.Row():
+                with gr.Column(scale=3):
+                    submit = gr.Button("Gửi")
+                    chat_history_list = gr.Dropdown(label="Lịch sử trò chuyện", choices=[], visible=False, interactive=True)
+                    new_chat_button = gr.Button("Tạo cuộc trò chuyện mới")  # New chat button
+                    history_button = gr.Button("📜 Lịch sử")
+                    personality.change(fn=lambda x, y: create_new_chat_and_update(y, x), inputs=[personality, login_info], outputs=[chat_history_list, chatbot, current_chat_id])
+            
+        # Premade prompts section
+            gr.Markdown("### Thư viện công cụ")
+            with gr.Row():
+                prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
+        # State for login info
+            login_info = gr.State({"username": "", "password": "", "logged_in": False, "is_admin": False})
         # Add click handlers for login and create user buttons
         login_button.click(
             fn=login,
@@ -474,19 +513,15 @@ def create_user_interface():
             outputs=chatbot
         )
 
-        clear.click(
-            fn=lambda: None, 
-            inputs=None, 
-            outputs=chatbot
-        )
         
         history_button.click(
             fn=load_chat_history_list,
             inputs=[login_info],
-            outputs=[chat_history_list, chatbot, current_chat_id]  # Update chat list and clear chatbot
+            outputs=[chat_history_list, current_chat_id] # Update current_chat_id here
         )
+
         personality.change(
-            fn=lambda x, y: create_new_chat(y["username"], title=f"Cuộc trò chuyện với {x}"),  # Create new chat with personality name as title
+            fn=lambda x, y: create_new_chat_and_update(y, x),  # Pass personality value
             inputs=[personality, login_info],
             outputs=[chat_history_list, chatbot, current_chat_id]  # Update chat list and clear chatbot
         )
@@ -520,6 +555,22 @@ def create_user_interface():
         user_selector.change(fn=update_admin_view, inputs=[user_selector], outputs=[admin_chatbot])
 
     return interface
+# Helper function to create chat and update components:
+def create_new_chat_and_update(login_info):
+    """Helper function to create chat, update components, and return new chat_id"""
+    if not login_info.get("logged_in", False):
+        return gr.update(choices=[], visible=False), [], None
+
+    title = "Cuộc trò chuyện mới"
+    if personality:
+        title = f"Cuộc trò chuyện với {personality}"
+
+    chat_id, chat_file = create_new_chat(login_info["username"], title=title)
+    chats = get_user_chats(login_info["username"])
+    chat_choices = [[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats]
+    updated_chat_list = gr.update(choices=chat_choices, visible=True)
+    return updated_chat_list, [], chat_id
+
 
 def save_profile_info(real_name, age, gender, height, weight, education, interests, treatment, login_info):
     if not login_info["logged_in"]:
@@ -584,12 +635,20 @@ def generate_response(message, history, personality, ollama_model, login_info):
             personality_prompt = f"""
 {personality_prompt}
 
-IMPORTANT: You must follow these rules in your responses:
-1. Always maintain the personality and speaking style shown in the example below
-2. Include emotional expressions and actions in parentheses like in the example
-3. Use similar language patterns and mannerisms
-4. Keep the same level of formality and tone
-5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại
+<div class="g3mark-callout g3mark-callout-important">
+<span class="g3mark-callout__icon" aria-hidden="true"></span>
+<span class="g3mark-callout__keyword">IMPORTANT:</span> You must follow these rules in your responses:
+
+</div>
+Always maintain the personality and speaking style shown in the example below
+
+Include emotional expressions and actions in parentheses like in the example
+
+Use similar language patterns and mannerisms
+
+Keep the same level of formality and tone
+
+Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại
 
 Example response style to follow:
 {example}
@@ -609,14 +668,22 @@ Remember: Your every response must follow this style exactly, including the emot
                 
                 profile_info = f"""
 Thông tin người dùng:
-- Tên: {profile.get('real_name', '')}
-- Tuổi: {age}
-- Giới tính: {profile.get('gender', '')}
-- Chiều cao: {height} cm
-- Cân nặng: {weight} kg
-- Học vấn: {profile.get('education', '')}
-- Sở thích: {profile.get('interests', '')}
-- Cách đối xử mong muốn: {profile.get('treatment_preference', '')}
+
+Tên: {profile.get('real_name', '')}
+
+Tuổi: {age}
+
+Giới tính: {profile.get('gender', '')}
+
+Chiều cao: {height} cm
+
+Cân nặng: {weight} kg
+
+Học vấn: {profile.get('education', '')}
+
+Sở thích: {profile.get('interests', '')}
+
+Cách đối xử mong muốn: {profile.get('treatment_preference', '')}
 """.encode('utf-8').decode('utf-8')
                 personality_prompt = f"{personality_prompt}\n{profile_info}"
         
@@ -678,26 +745,28 @@ Thông tin người dùng:
     
     except Exception as e:
         logging.error(f"Error generating response: {str(e)}")
-        yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
+        yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại."
 def load_chat_history_list(login_info):
     """Load list of user's chat sessions, fixing history functionality"""
     if not login_info.get("logged_in", False):
-        return gr.update(choices=[], visible=False)
+        return gr.update(choices=[], visible=False), None
 
     chats = get_user_chats(login_info["username"])
     chat_choices = [[chat["id"], f"{chat['title']} ({chat['timestamp']})"] for chat in chats]
 
-    return gr.update(choices=chat_choices, visible=True)
+    return gr.update(choices=chat_choices, visible=True), None #Added None
 
 
-def load_selected_chat(login_info, selected_chat, current_chat_id):
-    """Load messages from a selected chat session, updating current_chat_id"""
+
+
+def load_selected_chat(login_info, selected_chat, current_chat_id):  # Add current_chat_id
+    """Load messages from a selected chat session"""
     if not login_info.get("logged_in", False) or not selected_chat:
         return [], None  # Return empty history and None for chat_id
 
     chat_id = selected_chat[0] if isinstance(selected_chat, list) else selected_chat
-    current_chat_id = chat_id
-    return load_chat_history(login_info["username"], chat_id), current_chat_id
+    chat_history = load_chat_history(login_info["username"], chat_id)
+    return chat_history, chat_id # Return the chat_id
 
 
 
@@ -715,14 +784,31 @@ def user_msg(user_message, history, login_info, current_chat_id):  # Add current
 
 
 
-def bot_response(history, login_info, personality, model, current_chat_id): # Add current_chat_id
-    # ... (Existing bot_response code)
+def bot_response(history, login_info, personality, model, current_chat_id):
+    if not history or not login_info.get("logged_in", False):
+        return history or []  # Return current history if empty or not logged in
 
-        # ... inside the for chunk loop for generate_response
+    user_message = history[-1][0]
+    bot_message = ""
 
-            history[-1][1] = bot_message
-            save_chat_message(login_info["username"], current_chat_id, user_message, bot_message) # Save message with current_chat_id
-            yield history
+    try:
+        ollama_model = MODEL_DISPLAY_NAMES.get(model, model)
+        for chunk in generate_response(user_message, history[:-1], personality, ollama_model, login_info):
+            bot_message = chunk  # Update the full bot message
+            history[-1][1] = bot_message  # Update the bot's response in history
+            # Important: Save the message after EACH chunk
+            save_chat_message(login_info["username"], current_chat_id, user_message, bot_message)
+            yield history  # Yield updated history for each chunk
+
+
+    except Exception as e:
+        logging.error(f"Error in bot_response: {str(e)}")
+        error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
+        history[-1][1] = error_message  # Update with error message
+        yield history
+
+
+
 def stop_gen():
     global stop_generation
     stop_generation = True
@@ -735,138 +821,81 @@ def update_admin_view(selected_user):
 
 def refresh_users():
     user_files = os.listdir(USER_DATA_FOLDER)
-    user_names = [os.path.splitext(f)[0] for f in user_files if f.endswith('.json')]
-    return gr.Dropdown(choices=user_names)
+    user_names = [os.path.splitext(f)[0] for f in user_files if os.path.isdir(os.path.join(USER_DATA_FOLDER, f))]
+    return gr.update(choices=user_names)  # Use gr.update to update the dropdown choices
+
+
+
 
 def login(username, password):
-    """Handle user login with bcrypt"""
-    if not username or not password:
-        return (
-            gr.update(visible=True),   # login container
-            gr.update(visible=False),  # chat container
-            gr.update(visible=False),  # admin container
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],  # chatbot
-            None,  # user avatar
-            None,  # bot avatar
-            gr.update(visible=True, value="Vui lòng nhập tên đăng nhập và mật khẩu"),  # login message
-            [],  # user list for admin
-        )
+    """Handle user login with simple password comparison"""
+    try:
+        user_folder = get_user_folder(username)
+        user_data_file = os.path.join(user_folder, "user_data.json")
+        
+        if not os.path.exists(user_data_file):
+            return (
+                gr.Column(visible=True),  # login container
+                gr.Column(visible=False),  # chat container
+                gr.Column(visible=False),  # admin container
+                {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
+                [],  # chatbot
+                None,  # user avatar
+                None,  # bot avatar
+                gr.Markdown("User not found", visible=True),  # login message
+                []  # user list for admin
+            )
 
-    if username == "admin" and password == DEFAULT_PASSWORD:
-        # Admin login
-        user_files = [f for f in os.listdir(USER_DATA_FOLDER) if f.endswith('.json')]
-        user_names = [os.path.splitext(f)[0] for f in user_files]
-        return (
-            gr.update(visible=False),  # login container
-            gr.update(visible=False),  # chat container
-            gr.update(visible=True),   # admin container
-            {"username": username, "password": password, "logged_in": True, "is_admin": True},
-            [],  # chatbot
-            None,  # user avatar
-            None,  # bot avatar
-            gr.update(visible=False),  # login message
-            user_names,  # user list for admin
-        )
-    
-    user_data = load_user_data(username)
-    if not user_data:
-        return (
-            gr.update(visible=True),   # login container
-            gr.update(visible=False),  # chat container
-            gr.update(visible=False),  # admin container
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],  # chatbot
-            None,  # user avatar
-            None,  # bot avatar
-            gr.update(visible=True, value="Tên đăng nhập không tồn tại. Vui lòng tạo người dùng mới."),
-            [],  # user list for admin
-        )
-    
-    if not verify_password(password, user_data.get("password")): # Verify password with bcrypt.
-        return (
-            gr.update(visible=True),   # login container
-            gr.update(visible=False),  # chat container
-            gr.update(visible=False),  # admin container
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],  # chatbot
-            None,  # user avatar
-            None,  # bot avatar
-            gr.update(visible=True, value="Mật khẩu không đúng. Vui lòng thử lại."),
-            [],  # user list for admin
-        )
+        with open(user_data_file, 'r', encoding='utf-8') as f:
+            user_data = json.load(f)
 
-    # Successful regular user login
-    return (
-        gr.update(visible=False),  # login container
-        gr.update(visible=True),   # chat container
-        gr.update(visible=False),  # admin container
-        {"username": username, "password": password, "logged_in": True, "is_admin": False},
-        user_data.get("chat_history", [])[-10:],  # chatbot
-        user_data.get("user_avatar"),  # user avatar
-        user_data.get("bot_avatar"),   # bot avatar
-        gr.update(visible=False),  # login message
-        [],  # user list for admin
-    )
-
-def create_new_user(username, password):
-    """Create a new user account"""
-    if not username or not password:
+        stored_password = user_data.get("password", "")
+        
+        if password == stored_password:  # Simple password comparison
+            is_admin = (username == "admin")
+            login_info = {
+                "username": username,
+                "password": password,
+                "logged_in": True,
+                "is_admin": is_admin
+            }
+            
+            return (
+                gr.Column(visible=False),  # login container
+                gr.Column(visible=True),   # chat container
+                gr.Column(visible=is_admin),  # admin container
+                login_info,  # login info
+                [],  # chatbot
+                None,  # user avatar
+                None,  # bot avatar
+                gr.Markdown("Login successful!", visible=True),  # login message
+                refresh_users() if is_admin else []  # user list for admin
+            )
+        else:
+            return (
+                gr.Column(visible=True),  # login container
+                gr.Column(visible=False),  # chat container
+                gr.Column(visible=False),  # admin container
+                {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
+                [],  # chatbot
+                None,  # user avatar
+                None,  # bot avatar
+                gr.Markdown("Incorrect password", visible=True),  # login message
+                []  # user list for admin
+            )
+    except Exception as e:
+        logging.error(f"Login error: {e}")
         return (
-            gr.update(visible=True),  # login container
-            gr.update(visible=False), # chat container
-            gr.update(visible=False),  # admin container
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
+            gr.Column(visible=True),  # login container
+            gr.Column(visible=False),  # chat container
+            gr.Column(visible=False),  # admin container
+            {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
             [],  # chatbot
             None,  # user avatar
             None,  # bot avatar
-            gr.update(visible=True, value="Tên đăng nhập và mật khẩu không được để trống."),
-            [],  # user list for admin
+            gr.Markdown(f"Login error: {str(e)}", visible=True),  # login message
+            []  # user list for admin
         )
-    
-    user_data = load_user_data(username)
-    if user_data:
-        return (
-            gr.update(visible=True),  # login container
-            gr.update(visible=False), # chat container
-            gr.update(visible=False),  # admin container
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],  # chatbot
-            None,  # user avatar
-            None,  # bot avatar
-            gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác."),
-            [],  # user list for admin
-        )
-    # Hash the password before saving
-    hashed_password = hash_password(password)
-    new_user_data = {
-        "username": username,
-        "password": hashed_password, # Store the hashed password
-        # ...
-        "chat_history": [],
-        "user_avatar": None,
-        "bot_avatar": None
-    }
-    # Now store the Base64 encoded string:
-    new_user_data["password"] = hash_password(password)    
-    # Save user data
-    save_user_data(username, new_user_data)
-    
-    return (
-        gr.update(visible=True),  # login container
-        gr.update(visible=False), # chat container
-        gr.update(visible=False),  # admin container
-        {"username": "", "password": "", "logged_in": False, "is_admin": False},
-        [],  # chatbot
-        None,  # user avatar
-        None,  # bot avatar
-        gr.update(visible=True, value="Tạo tài khoản thành công! Vui lòng đăng nhập."),
-        [],  # user list for admin
-    )
-# In the verify_password function, decode the Base64 string:
-def verify_password(password, hashed_password_string):
-    hashed_password_bytes = base64.b64decode(hashed_password_string.encode('utf-8')) # Add .encode('utf-8') to the argument
-    return bcrypt.checkpw(password.encode('utf-8'), hashed_password_bytes)
 def user_msg(user_message, history, login_info):
     if not login_info.get("logged_in", False):
         return "Vui lòng đăng nhập trước khi gửi tin nhắn.", history
@@ -957,11 +986,62 @@ def search_internet(query, cse_id):
     except Exception as e:
         return f"Lỗi tìm kiếm internet: {str(e)}"
 
+def create_new_user(username, password):
+    """Create a new user account"""
+    try:
+        user_folder = get_user_folder(username)
+        user_data_file = os.path.join(user_folder, "user_data.json")
+        
+        if os.path.exists(user_data_file):
+            return (
+                gr.Column(visible=True),  # login container
+                gr.Column(visible=False),  # chat container
+                gr.Column(visible=False),  # admin container
+                {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
+                [],  # chatbot
+                None,  # user avatar
+                None,  # bot avatar
+                gr.Markdown("Username already exists", visible=True),  # login message
+                []  # user list for admin
+            )
+
+        user_data = {
+            "username": username,
+            "password": password  # Store password directly
+        }
+        
+        with open(user_data_file, 'w', encoding='utf-8') as f:
+            json.dump(user_data, f, indent=2, ensure_ascii=False)
+            
+        return (
+            gr.Column(visible=True),  # login container
+            gr.Column(visible=False),  # chat container
+            gr.Column(visible=False),  # admin container
+            {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
+            [],  # chatbot
+            None,  # user avatar
+            None,  # bot avatar
+            gr.Markdown("User created successfully! Please login.", visible=True),  # login message
+            []  # user list for admin
+        )
+    except Exception as e:
+        logging.error(f"Create user error: {e}")
+        return (
+            gr.Column(visible=True),  # login container
+            gr.Column(visible=False),  # chat container
+            gr.Column(visible=False),  # admin container
+            {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login info
+            [],  # chatbot
+            None,  # user avatar
+            None,  # bot avatar
+            gr.Markdown(f"Error creating user: {str(e)}", visible=True),  # login message
+            []  # user list for admin
+        )
 # Launch only the user interface
 if __name__ == "__main__":
     interface = create_user_interface()
     interface.launch(
-        server_port=7872,  # Use a different port
+        server_port=7872,
         share=False,
         debug=True,
         show_error=True
