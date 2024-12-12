@@ -11,8 +11,16 @@ from googleapiclient.discovery import build
 from datetime import datetime
 import tiktoken  # Import the tiktoken library
 
+# ************************************************************************
+# *                         Logging Configuration                        *
+# ************************************************************************
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# ************************************************************************
+# *                         Constant Definitions                         *
+# ************************************************************************
 
 DEFAULT_PASSWORD = "admin"
 
@@ -34,7 +42,18 @@ AVAILABLE_MODELS = {
     }
 }
 
-# Personalities dictionary
+# Folder to store user data
+USER_DATA_FOLDER = "userdata"
+os.makedirs(USER_DATA_FOLDER, exist_ok=True)
+
+# Google Custom Search Engine (CSE) setup
+GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+
+# ************************************************************************
+# *                        Personalities Dictionary                     *
+# ************************************************************************
+
 PERSONALITIES = {
     "Trợ lý": {
         "system": """Bạn là một trợ lý AI hữu ích. LUÔN LUÔN:
@@ -147,8 +166,16 @@ Phong cách:
     }
 }
 
-# Example responses for each personality
+# ************************************************************************
+# *                      Example Responses Dictionary                    *
+# ************************************************************************
+
 EXAMPLE_RESPONSES = {
+    "Trợ lý": [
+        "Tuyệt vời! Tôi rất vui được giúp bạn giải đáp thắc mắc này.",
+        "Câu hỏi rất hay! Để tôi giúp bạn làm rõ vấn đề này nhé.",
+        "Cảm ơn bạn đã đặt câu hỏi. Tôi sẽ cung cấp thông tin chi tiết cho bạn."
+    ],
     "Thuyền Trưởng": [
         "Haha, câu hỏi thú vị đấy! (vuốt râu mỉm cười) Để tôi giải thích cho cháu hiểu nhé. Qua 69 năm lênh đênh trên biển đời, tôi đã học được rằng...",
         "Này cháu à, (cười hiền) vấn đề này phức tạp như một nút thắt hàng hải vậy. Nhưng đừng lo, để thuyền trưởng giải thích từng bước một nhé...",
@@ -181,7 +208,10 @@ EXAMPLE_RESPONSES = {
     ]
 }
 
-# Premade prompts dictionary with system prompts and user instructions
+# ************************************************************************
+# *                      Premade Prompts Dictionary                      *
+# ************************************************************************
+
 PREMADE_PROMPTS = {
     "Dịch văn bản": {
         "system": "Bạn là chuyên gia ngôn ngữ có thể dịch tốt mọi thứ tiếng. Hãy dịch đoạn văn sau sang tiếng Việt một cách tự nhiên và chuẩn chính xác, đảm bảo giữ nguyên ý nghĩa gốc và sử dụng từ vựng phù hợp: ",
@@ -216,12 +246,38 @@ PREMADE_PROMPTS = {
     "Tư vấn tập GYM": {
         "system": "Bạn là huấn luyện viên thể hình chuyên nghiệp. Hãy tư vấn cho tôi một chương trình tập luyện GYM phù hợp với mức độ hiện tại của tôi, bao gồm các bài tập chính, lịch trình tập luyện, và lời khuyên về cách giữ động lực dựa trên thông tin cân nặng và chiều cao và % cơ của tôi sau đây: ",
         "user": "Nhập thông tin chiều cao, cân nặng và ti lệ phần trăm cơ bắp của bạn:",
-        "links": ["https://www.youtube.com/watch?v=", "https://www.google.com/search?q="]
+        "links": ["https://www.youtube.com/watch?v=", "https://www.google.com/search?q="],
+        "detail": {
+            "BMR (Basal Metabolic Rate)": "Là tỷ lệ trao đổi chất cơ bản, tức lượng calo cơ thể bạn đốt cháy khi nghỉ ngơi hoàn toàn. BMR phụ thuộc vào các yếu tố như tuổi, giới tính, chiều cao, cân nặng và mức độ hoạt động thể chất.",
+            "TDEE (Total Daily Energy Expenditure)": "Là tổng năng lượng tiêu hao hàng ngày, bao gồm BMR cộng với năng lượng tiêu hao cho hoạt động thể chất và tiêu hóa thức ăn.",
+            "Mục tiêu calo": "Dựa vào mục tiêu của bạn (giảm cân, tăng cơ, duy trì cân nặng) và TDEE, bạn sẽ cần điều chỉnh lượng calo nạp vào hàng ngày.",
+            "Protein": "Giúp xây dựng và duy trì cơ bắp. Nhu cầu protein phụ thuộc vào mức độ hoạt động thể chất và mục tiêu tập luyện.",
+            "Carbohydrate": "Cung cấp năng lượng cho cơ thể, đặc biệt quan trọng cho các hoạt động thể chất cường độ cao.",
+            "Chất béo": "Cần thiết cho nhiều chức năng của cơ thể, bao gồm hấp thụ vitamin và sản xuất hormone.",
+            "Hydrat hóa": "Uống đủ nước rất quan trọng cho sức khỏe và hiệu suất tập luyện.",
+            "Lịch trình tập luyện": "Tần suất, thời lượng và cường độ tập luyện cần phù hợp với mục tiêu và mức độ hiện tại của bạn.",
+            "Bài tập": "Lựa chọn các bài tập phù hợp với mục tiêu (ví dụ: tập tạ để tăng cơ, cardio để giảm mỡ).",
+            "Nghỉ ngơi": "Cơ bắp cần thời gian để phục hồi sau khi tập luyện. Ngủ đủ giấc và nghỉ ngơi hợp lý là rất quan trọng.",
+            "Theo dõi tiến độ": "Ghi lại cân nặng, số đo cơ thể, mức tạ, v.v. để theo dõi tiến độ và điều chỉnh kế hoạch tập luyện khi cần thiết."
+        }
     },
     "Tư vấn dinh dưỡng": {
         "system": "Bạn là chuyên gia dinh dưỡng. Hãy tư vấn cho tôi về chế độ ăn uống phù hợp với mục tiêu sức khỏe của tôi (ví dụ: giảm cân, tăng cơ, giữ gìn sức khỏe), bao gồm lời khuyên về thực phẩm, khẩu phần, và lịch trình ăn uống: ",
         "user": "Nhập mục tiêu và thông tin cơ thể:",
-        "links": ["https://www.vinmec.com/", "https://www.google.com/search?q="]
+        "links": ["https://www.vinmec.com/", "https://www.google.com/search?q="],
+        "detail": {
+            "Calo": "Lượng calo cần thiết mỗi ngày phụ thuộc vào mục tiêu (giảm cân, tăng cân, duy trì cân nặng), mức độ hoạt động thể chất, tuổi, giới tính và các yếu tố khác.",
+            "Protein": "Chất đạm rất quan trọng để xây dựng và duy trì cơ bắp, hỗ trợ phục hồi sau tập luyện. Nguồn protein tốt bao gồm thịt nạc, cá, trứng, sữa, các loại đậu.",
+            "Carbohydrate": "Carb cung cấp năng lượng cho cơ thể, đặc biệt quan trọng cho các hoạt động thể chất. Nên chọn carb phức hợp như ngũ cốc nguyên hạt, rau củ quả.",
+            "Chất béo": "Chất béo lành mạnh (từ dầu ô liu, quả bơ, các loại hạt) rất cần thiết cho sức khỏe, hỗ trợ hấp thu vitamin và sản xuất hormone.",
+            "Chất xơ": "Giúp hệ tiêu hóa khỏe mạnh, tạo cảm giác no lâu, hỗ trợ kiểm soát cân nặng. Chất xơ có nhiều trong rau củ quả, ngũ cốc nguyên hạt.",
+            "Vitamin và khoáng chất": "Cần thiết cho nhiều chức năng của cơ thể. Chế độ ăn uống đa dạng, cân bằng sẽ cung cấp đủ vitamin và khoáng chất.",
+            "Hydrat hóa": "Uống đủ nước rất quan trọng cho sức khỏe và hiệu suất tập luyện.",
+            "Khẩu phần": "Kích thước khẩu phần cần phù hợp với mục tiêu calo và nhu cầu dinh dưỡng của bạn.",
+            "Lịch trình ăn uống": "Chia nhỏ bữa ăn trong ngày có thể giúp kiểm soát cơn đói và duy trì mức năng lượng ổn định.",
+            "Thực phẩm nên tránh": "Hạn chế thực phẩm chế biến sẵn, đồ ăn nhanh, nước ngọt có ga, đồ ăn nhiều đường, muối.",
+            "Theo dõi và điều chỉnh": "Ghi lại nhật ký ăn uống để theo dõi lượng calo và dinh dưỡng nạp vào, từ đó điều chỉnh chế độ ăn uống khi cần thiết."
+        }
     },
     "Sáng tác nhạc": {
         "system": "Bạn là nhạc sĩ tài năng. Hãy sáng tác một bài hát với lời ca từ về chủ đề sau, sử dụng nhịp điệu phù hợp và âm nhạc dễ nghe: ",
@@ -230,18 +286,56 @@ PREMADE_PROMPTS = {
     }
 }
 
-# Folder to store user data
-USER_DATA_FOLDER = "userdata"
-os.makedirs(USER_DATA_FOLDER, exist_ok=True)
+# ************************************************************************
+# *                  Token Estimation Function                          *
+# ************************************************************************
 
-# Google Custom Search Engine (CSE) setup
-GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-# Function to estimate tokens using tiktoken
 def estimate_tokens(text):
+    """Estimates the number of tokens in a text string."""
     encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
     return len(encoding.encode(text))
+
+# ************************************************************************
+# *            Function to Update Existing User Data                    *
+# ************************************************************************
+
+def update_existing_user_data():
+    for filename in os.listdir(USER_DATA_FOLDER):
+        if filename.endswith(".json"):
+            filepath = os.path.join(USER_DATA_FOLDER, filename)
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    user_data = json.load(f)
+
+                # Convert chat_history to dictionary if it's a list
+                if "chat_history" in user_data and isinstance(user_data["chat_history"], list):
+                    new_chat_history = {}
+                    for i, msg in enumerate(user_data["chat_history"]):
+                        if isinstance(msg, list) and len(msg) == 2:
+                            new_chat_history[str(i)] = [msg[0], msg[1]]
+                    user_data["chat_history"] = new_chat_history
+
+                # Add next_chat_id if it doesn't exist
+                if "next_chat_id" not in user_data:
+                    # Find the highest existing chat ID and add 1
+                    max_chat_id = -1
+                    if "chat_history" in user_data and isinstance(user_data["chat_history"], dict):
+                      for chat_id in user_data["chat_history"]:
+                        if chat_id.isdigit() and int(chat_id) > max_chat_id:
+                          max_chat_id = int(chat_id)
+                    
+                    user_data["next_chat_id"] = max_chat_id + 1
+
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(user_data, f, ensure_ascii=False, indent=2)
+                print(f"Updated user data for {filename}")
+
+            except Exception as e:
+                print(f"Error updating {filename}: {e}")
+
+# ************************************************************************
+# *                     Google Search Function                         *
+# ************************************************************************
 
 def google_search(query, cse_id, api_key, **kwargs):
     try:
@@ -251,6 +345,10 @@ def google_search(query, cse_id, api_key, **kwargs):
     except Exception as e:
         logging.error(f"Error in google_search: {e}")
         return None
+
+# ************************************************************************
+# *               Search and Summarize Function                        *
+# ************************************************************************
 
 def search_and_summarize(query, personality, links):
     """
@@ -290,6 +388,10 @@ def search_and_summarize(query, personality, links):
     else:
         return "Không tìm thấy thông tin liên quan.", []
 
+# ************************************************************************
+# *                    Save User Data Function                         *
+# ************************************************************************
+
 def save_user_data(username, data):
     user_folder = os.path.join(USER_DATA_FOLDER, username)
     os.makedirs(user_folder, exist_ok=True)  # Create user folder if it doesn't exist
@@ -301,6 +403,10 @@ def save_user_data(username, data):
     except Exception as e:
         logging.error(f"Error in save_user_data: {e}")
 
+# ************************************************************************
+# *                    Load User Data Function                         *
+# ************************************************************************
+
 def load_user_data(username):
     user_folder = os.path.join(USER_DATA_FOLDER, username)
     file_path = os.path.join(user_folder, "user_data.json")
@@ -309,18 +415,12 @@ def load_user_data(username):
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # Convert old format to new format if necessary
-        if "chat_history" in data:
-            new_chat_history = {}
-            for i, msg in enumerate(data["chat_history"]):
-                if isinstance(msg, list) and len(msg) == 2:
-                    new_chat_history[str(i)] = [msg[0], msg[1]]
-            data["chat_history"] = new_chat_history
-        else:
-            data["chat_history"] = {}
-
         return data
     return None
+
+# ************************************************************************
+# *                  Save Chat History Function                        *
+# ************************************************************************
 
 def save_chat_history(username, chat_id, chat_history):
     """Saves a chat session to a separate file."""
@@ -332,6 +432,10 @@ def save_chat_history(username, chat_id, chat_history):
     except Exception as e:
         logging.error(f"Error in save_chat_history: {e}")
 
+# ************************************************************************
+# *                  Load Chat History Function                        *
+# ************************************************************************
+
 def load_chat_history(username, chat_id):
     """Loads a chat session from its file."""
     user_folder = os.path.join(USER_DATA_FOLDER, username)
@@ -340,6 +444,10 @@ def load_chat_history(username, chat_id):
         with open(chat_file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     return None
+
+# ************************************************************************
+# *                    Create New User Function                        *
+# ************************************************************************
 
 def create_new_user(username, password):
     if not username or not password:
@@ -408,7 +516,10 @@ def create_new_user(username, password):
         []
     )
 
-# Define custom CSS
+# ************************************************************************
+# *                          Custom CSS                                 *
+# ************************************************************************
+
 custom_css = """
 .message {
     padding: 10px;
@@ -448,6 +559,10 @@ custom_css = """
     transition: max-height 0.2s ease-out;
 }
 """
+
+# ************************************************************************
+# *                     Create User Interface Function                  *
+# ************************************************************************
 
 def create_user_interface():
     with gr.Blocks(css=custom_css) as user_interface:
@@ -539,6 +654,10 @@ def create_user_interface():
                     with gr.Row():
                         stop = gr.Button("Dừng tạo câu trả lời")
 
+        # ************************************************************************
+        # *                   Save Profile Info Function                      *
+        # ************************************************************************
+
         def save_profile_info(real_name, age, gender, vegan_checkbox, height, weight, muscle_percentage, fat_percentage, job, personality_text, login_info):
             if not login_info["logged_in"]:
                 return
@@ -570,6 +689,10 @@ def create_user_interface():
                 }
                 save_user_data(username, user_data)
 
+        # ************************************************************************
+        # *                   Load Profile Info Function                      *
+        # ************************************************************************
+
         def load_profile_info(login_info):
             if not login_info["logged_in"]:
                 return [gr.update(value="") for _ in range(10)]
@@ -591,6 +714,10 @@ def create_user_interface():
                     profile.get("personality", "")
                 ]
             return [gr.update(value="") for _ in range(10)]
+
+        # ************************************************************************
+        # *                Generate Chat Title Function                     *
+        # ************************************************************************
         
         def generate_chat_title(chat_history):
             """Generates a title for the chat based on its content."""
@@ -636,7 +763,11 @@ def create_user_interface():
             except Exception as e:
                 logging.error(f"Error generating chat title: {e}")
                 return "Cuộc trò chuyện mới"
-        
+
+        # ************************************************************************
+        # *                       New Chat Function                          *
+        # ************************************************************************
+
         def new_chat(login_info, personality_choice, model_choice):
             if login_info["logged_in"]:
                 username = login_info["username"]
@@ -665,11 +796,16 @@ def create_user_interface():
             else:
                 return [], None, gr.update(choices=[])
 
+        # ************************************************************************
+        # *                  Load Selected Chat Function                     *
+        # ************************************************************************
+
         def load_selected_chat(login_info, chat_id):
+        
             if login_info["logged_in"] and chat_id:
                 username = login_info["username"]
                 chat_history = load_chat_history(username, chat_id)
-
+                
                 if chat_history is None:
                     # Handle case where chat history file doesn't exist
                     logging.warning(f"Chat history not found for chat ID {chat_id}")
@@ -679,6 +815,10 @@ def create_user_interface():
                 return chat_history, chat_id
             else:
                 return [], None
+
+        # ************************************************************************
+        # *                   Generate Response Function                     *
+        # ************************************************************************
 
         def generate_response(message, history, personality, ollama_model, login_info, current_chat_id, use_internet):
             global stop_generation
@@ -799,7 +939,7 @@ def create_user_interface():
                 
                 # Generate response using ollama.chat
                 response_complete = ""
-                progress = gr.Progress()
+                search_links = [] # Initialize search_links here
                 for chunk in ollama.chat(
                     model=AVAILABLE_MODELS[ollama_model],
                     messages=messages,
@@ -810,15 +950,23 @@ def create_user_interface():
                     if 'message' in chunk:
                         response_chunk = chunk['message']['content']
                         response_complete += response_chunk
-                        yield response_complete, search_links if use_internet else []
+                        yield response_complete, list(set(search_links)) if use_internet else []
     
             except Exception as e:
                 logging.error(f"Error generating response: {str(e)}")
                 yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.", []
 
+        # ************************************************************************
+        # *                       Stop Generation Function                    *
+        # ************************************************************************
+
         def stop_gen():
             global stop_generation
             stop_generation = True
+
+        # ************************************************************************
+        # *                     Update Admin View Function                    *
+        # ************************************************************************
 
         def update_admin_view(selected_user):
             if selected_user:
@@ -830,7 +978,11 @@ def create_user_interface():
                         admin_chat_history.append(msg)
                 return admin_chat_history
             return []
-        
+
+        # ************************************************************************
+        # *                    Show All Chats Function                       *
+        # ************************************************************************
+
         def show_all_chats():
             all_chats_history = []
             for user_file in os.listdir(USER_DATA_FOLDER):
@@ -847,15 +999,18 @@ def create_user_interface():
                     all_chats_history.append([None, "=== End of Chat History ==="])
             return all_chats_history
 
+        # ************************************************************************
+        # *                      Refresh Users Function                      *
+        # ************************************************************************
+
         def refresh_users():
             user_files = os.listdir(USER_DATA_FOLDER)
             user_names = [f for f in user_files if os.path.isdir(os.path.join(USER_DATA_FOLDER, f))]
             return gr.update(choices=user_names)
-        
-        # Connect the admin panel components
-        refresh_button.click(refresh_users, outputs=[user_selector])
-        user_selector.change(update_admin_view, inputs=[user_selector], outputs=[admin_chatbot])
-        show_all_chats_button.click(show_all_chats, outputs=[admin_chatbot])
+
+        # ************************************************************************
+        # *                          Login Function                           *
+        # ************************************************************************
 
         def login(username, password):
             if username == "admin" and password == DEFAULT_PASSWORD:
@@ -905,18 +1060,6 @@ def create_user_interface():
                 )
             else:
                 # Load the last chat ID or start a new chat
-                # Check and update next_chat_id if not exist
-                if "next_chat_id" not in user_data:
-                    # Find the highest existing chat ID and add 1
-                    max_chat_id = -1
-                    if "chat_history" in user_data and isinstance(user_data["chat_history"], dict):
-                        for chat_id in user_data["chat_history"]:
-                            if chat_id.isdigit() and int(chat_id) > max_chat_id:
-                                max_chat_id = int(chat_id)
-                    
-                    user_data["next_chat_id"] = max_chat_id + 1
-                    save_user_data(username, user_data)
-                
                 last_chat_id = str(user_data["next_chat_id"] - 1) if user_data["next_chat_id"] > 0 else "0"
                 
                 # Check if last_chat_id exists in chat_history, if not, create it
@@ -944,6 +1087,19 @@ def create_user_interface():
                     chat_titles
                 )
 
+        # ************************************************************************
+        # *                     Connect Admin Panel Components                 *
+        # ************************************************************************
+
+        # Connect the admin panel components
+        refresh_button.click(refresh_users, outputs=[user_selector])
+        user_selector.change(update_admin_view, inputs=[user_selector], outputs=[admin_chatbot])
+        show_all_chats_button.click(show_all_chats, outputs=[admin_chatbot])
+
+        # ************************************************************************
+        # *                     Connect Login and other Components             *
+        # ************************************************************************
+
         # Update login button to handle admin view
         login_button.click(
             fn=login,
@@ -959,6 +1115,10 @@ def create_user_interface():
             outputs=[real_name, age, gender, height, weight, job, muscle_percentage, fat_percentage, vegan_checkbox, personality_text]
         )
 
+        # ************************************************************************
+        # *                         User Message Function                      *
+        # ************************************************************************
+
         def user_msg(user_message, history, login_info, current_chat_id):
             # Ensure current_chat_id is a string
             current_chat_id = str(current_chat_id)
@@ -972,14 +1132,18 @@ def create_user_interface():
         
             history.append([user_message, None])  # Add user message as a list of [user_message, None]
             return "", history
-        
+
+        # ************************************************************************
+        # *                        Bot Response Function                       *
+        # ************************************************************************
+
         def bot_response(history, login_info, personality, model, current_chat_id, use_internet):
-            # Ensure current_chat_id is a string
             current_chat_id = str(current_chat_id)
             
-            if not history:
-                return history or [], []
         
+            if not history:
+                return history or [], [], gr.update(choices=[])  # Return empty search links
+
             user_message = history[-1][0]
             bot_message = ""
             search_links = []
@@ -990,16 +1154,13 @@ def create_user_interface():
                     new_content = chunk[len(bot_message):]  # Get only the new content
                     bot_message = chunk  # Update the full bot message
                     search_links.extend(search_links_chunk) # Update the link list
-                    
-                    # Add reference links if available
-                    if search_links:
-                        ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in set(search_links)])
-                        history[-1][1] = bot_message + ref_links_message  # Update the bot's response in history
-                    else:
-                        history[-1][1] = bot_message
-                    
-                    yield history, search_links
-        
+                    history[-1][1] = bot_message # Update the bot's response in history
+
+                # Add reference links if available
+                if search_links:
+                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in set(search_links)])
+                    history[-1][1] = bot_message + ref_links_message
+
                 # Save the updated chat history
                 if login_info["logged_in"]:
                     username = login_info["username"]
@@ -1007,7 +1168,7 @@ def create_user_interface():
 
                     # Generate chat title after each response
                     chat_title = generate_chat_title(history)
-                    
+
                     # Update the chat history dropdown
                     chat_titles = []
                     for chat_id, chat_history in user_data["chat_history"].items():
@@ -1015,23 +1176,27 @@ def create_user_interface():
                             chat_titles.append((chat_title, chat_id))
                         else:
                             chat_titles.append((generate_chat_title(chat_history), chat_id))
-                    
+
                     # Save each chat to a separate file
                     save_chat_history(username, current_chat_id, history)
-                    
+
                     if current_chat_id in user_data["chat_history"]:
                         user_data["chat_history"][current_chat_id] = history
                         save_user_data(login_info["username"], user_data)
                     else:
                         logging.warning(f"Chat ID {current_chat_id} not found in user data.")
 
-                    yield history, search_links, gr.update(choices=chat_titles, value=current_chat_id)
+                yield history, list(set(search_links)), gr.update(choices=chat_titles, value=current_chat_id)
             except Exception as e:
                 logging.error(f"Error in bot_response: {str(e)}")
                 error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
                 history[-1][1] = error_message  # Update with error message
-                yield history, [], gr.update(choices=[])
+                yield history, [], gr.update(choices=[]) # Ensure returning 3 values
 
+        # ************************************************************************
+        # *                    Add Premade Prompt Function                    *
+        # ************************************************************************
+        
         def add_premade_prompt(prompt_name, current_msg, history):
             prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
             if prompt_data:
@@ -1039,7 +1204,11 @@ def create_user_interface():
                 new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
                 return "", new_history
             return current_msg, history
-        
+
+        # ************************************************************************
+        # *                    Connect Remaining Components                   *
+        # ************************************************************************
+
         new_chat_button.click(
             fn=new_chat,
             inputs=[login_info, personality, model],
@@ -1059,10 +1228,10 @@ def create_user_interface():
         )
         
         msg.submit(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, current_chat_id, chat_history_dropdown]
+            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
         )
         send.click(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, current_chat_id, chat_history_dropdown]
+            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
         )
 
         stop.click(stop_gen)
@@ -1088,10 +1257,14 @@ def create_user_interface():
 
     return user_interface
 
-# Launch only the user interface
+# ************************************************************************
+# *                     Launch User Interface                          *
+# ************************************************************************
+
 user_interface = create_user_interface()
 user_interface.launch(
     server_name="127.0.0.1",
     server_port=7871,
     share=False,
-)
+)                        
+                    
