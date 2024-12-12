@@ -361,7 +361,7 @@ PREMADE_PROMPTS = {
 
 def estimate_tokens(text):
     """Estimates the number of tokens in a text string."""
-    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    encoding = tiktoken.encoding_for_model("Tuanpham/t-visstar-7b:latest")
     return len(encoding.encode(text))
 
 # ************************************************************************
