@@ -1287,8 +1287,6 @@ def create_user_interface():
                     # Update the current chat's history in user_data
                     user_data["chat_history"][current_chat_id] = history
 
-                    # Generate chat title after each response
-                    chat_title = generate_chat_title(history, current_chat_id, user_data)
 
                     # Update user_data (including chat title)
                     save_user_data(login_info["username"], user_data)
