@@ -682,16 +682,16 @@ def create_user_interface():
 
                     password_input.submit(
                         fn=lambda pwd, info: (
-                            [gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("real_name", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("age", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("gender", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("height", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("weight", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("job", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("muscle_percentage", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("fat_percentage", "")),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("vegan", False)),
-                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("personality", ""))] +
+                            [gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("real_name", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("age", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("gender", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("height", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("weight", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("job", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("muscle_percentage", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("fat_percentage", "") if load_user_data(info["username"]) is not None else ""),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("vegan", False) if load_user_data(info["username"]) is not None else False),
+                             gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get("personality", "") if load_user_data(info["username"]) is not None else "")] +
                             [gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)]
                             if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
                             else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]
@@ -812,16 +812,21 @@ def create_user_interface():
         """.encode('utf-8').decode('utf-8')
 
                 return [
-                    gr.update(value=profile.get("real_name", "")),
-                    gr.update(value=profile.get("age", "")),
-                    gr.update(value=profile.get("gender", None)),
-                    gr.update(value=profile.get("height", "")),
-                    gr.update(value=profile.get("weight", "")),
-                    gr.update(value=profile.get("job", "")),
-                    gr.update(value=profile.get("muscle_percentage", "")),
-                    gr.update(value=profile.get("fat_percentage", "")),
-                    gr.update(value=profile.get("vegan", False)),
-                    gr.update(value=profile.get("personality", ""))
+                    gr.update(visible=False),  # Hide save_profile button
+                    gr.update(value=""),  # real_name
+                    gr.update(value=""),  # age
+                    gr.update(value=""),  # gender
+                    gr.update(value=""),  # height
+                    gr.update(value=""),  # weight
+                    gr.update(value=""),  # job
+                    gr.update(value=""),  # muscle_percentage
+                    gr.update(value=""),  # fat_percentage
+                    gr.update(value=False),  # vegan_checkbox
+                    gr.update(value=""),  # personality_text
+                    gr.update(visible=True),  # Show show_profile_button
+                    gr.update(visible=True, value="It's so nice to know more about you. Do you want to hide the information? (You can still update it later)"),  # Update password_error with confirmation message
+                    gr.update(visible=True)  # confirm_button
+                
                 ] + [gr.update(choices=list(PERSONALITIES.keys())), gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))]
             return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
 
