@@ -7,9 +7,10 @@ import logging
 from pathlib import Path
 import gradio as gr
 import ollama
-from googleapiclient.discovery import build
 from datetime import datetime
 import tiktoken  # Import the tiktoken library
+import requests
+from bs4 import BeautifulSoup
 
 # ************************************************************************
 # *                         Logging Configuration                        *
@@ -45,9 +46,6 @@ AVAILABLE_MODELS = {
 # Folder to store user data
 USER_DATA_FOLDER = "userdata"
 os.makedirs(USER_DATA_FOLDER, exist_ok=True)
-
-# Google Custom Search Engine (CSE) setup
-GOOGLE_CSE_ID = os.environ.get("GOOGLE_CSE_ID")
 
 # ************************************************************************
 # *                        Personalities Dictionary                     *
@@ -371,30 +369,18 @@ def update_existing_user_data():
             except Exception as e:
                 print(f"Error updating {filename}: {e}")
 
-# ************************************************************************
-# *                     Google Search Function                         *
-# ************************************************************************
-
-def google_search(query, cse_id, **kwargs):
-    """
-    Perform a Google Custom Search
-    """
-    try:
-        service = build("customsearch", "v1", developerKey=None)
-        res = service.cse().list(q=query, cx=cse_id, **kwargs).execute()
-        return res.get('items', [])
-    except Exception as e:
-        logging.error(f"Error in Google search: {str(e)}")
-        return []
+# Call update_existing_user_data() at the beginning of your script
+update_existing_user_data()
 
 # ************************************************************************
-# *               Search and Summarize Function                        *
+# *               Web Search and Scrape Function                        *
 # ************************************************************************
 
-def search_and_summarize(query, personality, links):
+def web_search_and_scrape(query, personality, links):
     """
     Searches the web and specific links based on the query and personality,
-    and returns a summarized response along with reference links.
+    scrapes the content of the top results, and returns a summarized response
+    along with reference links.
     """
     search_results = []
     reference_links = set()
@@ -403,23 +389,35 @@ def search_and_summarize(query, personality, links):
     if links:
         for link in links:
             try:
-                site_query = f"{query} site:{link}"
-                results = google_search(site_query, GOOGLE_CSE_ID)
-                if results:
-                    for item in results:
-                        search_results.append(f"{item['title']}: {item['snippet']}")
-                        reference_links.add(item['link'])
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                response = requests.get(link + "/search?q=" + query, headers=headers)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.content, 'html.parser')
+                # Extract titles and snippets - adapt selectors as needed based on website structure
+                for result in soup.find_all('div', class_='search-result', limit=2):  # Example selector
+                    title = result.find('h3').text
+                    snippet = result.find('p').text
+                    search_results.append(f"{title}: {snippet}")
+                    reference_links.add(link)
             except Exception as e:
                 logging.error(f"Error searching link {link}: {e}")
 
-    # General web search if no specific results or if personality requires it
+    # General web search using DuckDuckGo (example) if no specific results or if personality requires it
     if not search_results or personality == "Uncensored AI":
         try:
-            results = google_search(query, GOOGLE_CSE_ID, num=3)
-            if results:
-                for item in results:
-                    search_results.append(f"{item['title']}: {item['snippet']}")
-                    reference_links.add(item['link'])
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(f"https://duckduckgo.com/html/?q={query}", headers=headers)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Extract titles, snippets, and links - adapt selectors as needed
+            for result in soup.find_all('div', class_='result', limit=3):
+                title = result.find('a', class_='result__a').text
+                snippet = result.find('a', class_='result__snippet').text
+                link = result.find('a', class_='result__a')['href']
+                search_results.append(f"{title}: {snippet}")
+                reference_links.add(link)
         except Exception as e:
             logging.error(f"Error during general web search: {e}")
 
@@ -639,8 +637,8 @@ def create_user_interface():
             with gr.Row():
                 user_selector = gr.Dropdown(choices=[], label="Select User", interactive=True)
                 refresh_button = gr.Button("Refresh User List")
-                show_all_chats_button = gr.Button("Show All Chat Histories")
-            admin_chatbot = gr.Chatbot(elem_id="admin_chatbot", height=500)
+                show_all_chats_button = gr.Button("Show All Chat Histories")   
+                admin_chatbot = gr.Chatbot(elem_id="admin_chatbot", height=500)
             
         # Chat interface (initially hidden)
         with gr.Group(visible=False) as chat_interface:
@@ -687,29 +685,45 @@ def create_user_interface():
                     )
 
                     gr.Markdown("## Lịch sử trò chuyện")
-                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
+                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True, allow_custom_value=True)
                     with gr.Row():
                         load_chat_button = gr.Button("Load Chat")
                         rename_chat_button = gr.Button("Rename Chat")
                     rename_chat_textbox = gr.Textbox(placeholder="Enter new chat name", visible=False)
-                # Chat section
+
+                # Chat and tools section
                 with gr.Column(scale=3):
-                    with gr.Column(scale=1):
-                        personality = gr.Dropdown(
-                            choices=list(PERSONALITIES.keys()),
-                            value="Trợ lý",
-                            label="Chọn tính cách AI",
-                            interactive=True
-                        )
-                        model = gr.Dropdown(
-                            choices=list(MODEL_DISPLAY_NAMES.keys()),
-                            value="Vietai",
-                            label="Chọn mô hình AI",
-                            interactive=True
-                        )
-                        use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=True)
-                        new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
-                        with gr.Column():
+                    with gr.Row():
+                        # Chat section (chatbot, message input)
+                        with gr.Column(scale=3):
+                            # ... (Your existing code for chatbot, message input)
+                            chatbot = gr.Chatbot(elem_id="chatbot", height=500)
+                            with gr.Column(scale=1):
+                                msg = gr.Textbox(
+                                    label="Nhập tin nhắn của bạn",
+                                    placeholder="Nhập tin nhắn và nhấn Enter",
+                                    elem_id="msg"
+                                )
+                                send = gr.Button("Gửi", variant="primary")
+                            with gr.Row():
+                                stop = gr.Button("Dừng tạo câu trả lời")
+
+                        # Right column (personality, model, internet, new chat, premade prompts)
+                        with gr.Column(scale=1):
+                            personality = gr.Dropdown(
+                                choices=list(PERSONALITIES.keys()),
+                                value="Trợ lý",
+                                label="Chọn tính cách AI",
+                                interactive=True
+                            )
+                            model = gr.Dropdown(
+                                choices=list(MODEL_DISPLAY_NAMES.keys()),
+                                value="Vietai",
+                                label="Chọn mô hình AI",
+                                interactive=True
+                            )
+                            use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=True)
+                            new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
                             gr.Markdown("### Thư viện công cụ")
                             premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
 
@@ -832,8 +846,8 @@ def create_user_interface():
                 new_chat_id = str(user_data["next_chat_id"])
                 user_data["next_chat_id"] += 1
 
-                # Create new chat entry
-                user_data["chat_history"][new_chat_id] = []
+                # Create new chat entry in the dictionary
+                user_data["chat_history"][new_chat_id] = []  # Initialize as an empty list
 
                 # Update current chat ID
                 current_chat_id.value = new_chat_id
@@ -841,13 +855,13 @@ def create_user_interface():
                 # Save user data
                 save_user_data(username, user_data)
 
-                # Update chat history dropdown
+                # Update chat history dropdown (using generate_chat_title)
                 chat_titles = [
-                    (generate_chat_title(chat_history, chat_id, user_data), chat_id)
-                    for chat_id, chat_history in user_data["chat_history"].items()
+                    (generate_chat_title(user_data["chat_history"], chat_id, user_data), chat_id)
+                    for chat_id in user_data["chat_history"]
                 ]
 
-                return [], new_chat_id, gr.update(choices=chat_titles)
+                return [], new_chat_id, gr.update(choices=chat_titles, value=new_chat_id)  # Set the value to new_chat_id
             else:
                 return [], None, gr.update(choices=[])
 
@@ -856,19 +870,16 @@ def create_user_interface():
         # ************************************************************************
 
         def load_selected_chat(login_info, chat_id):
-        
             if login_info["logged_in"] and chat_id:
                 username = login_info["username"]
-                user_data = load_user_data(username)  # Load user_data here
-                chat_history = load_chat_history(username, chat_id)
-
-                if chat_history is None:
-                    # Handle case where chat history file doesn't exist
+                user_data = load_user_data(username)
+                if chat_id in user_data["chat_history"]:
+                    chat_history = user_data["chat_history"][chat_id]
+                    current_chat_id.value = chat_id
+                    return chat_history, chat_id  # Return the specific chat history
+                else:
                     logging.warning(f"Chat history not found for chat ID {chat_id}")
-                    return [], chat_id  # Return empty history and current chat ID
-
-                current_chat_id.value = chat_id
-                return chat_history, chat_id
+                    return [], chat_id
             else:
                 return [], None
 
@@ -958,7 +969,7 @@ def create_user_interface():
 
                     # Perform web search if required by the prompt and if allowed
                     if use_internet:
-                        search_summary, search_links = search_and_summarize(message, personality, current_prompt.get("links", []))
+                        search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
                         if search_summary != "Không tìm thấy thông tin liên quan.":
                             messages.append({
                                 'role': 'assistant',
@@ -986,7 +997,7 @@ def create_user_interface():
 
                 # Perform web search if required by the personality and if allowed
                 if use_internet and personality_links:
-                    search_summary, search_links = search_and_summarize(message, personality, personality_links)
+                    search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
                     if search_summary != "Không tìm thấy thông tin liên quan.":
                         messages.append({
                             'role': 'assistant',
@@ -1085,11 +1096,9 @@ def create_user_interface():
                 
                 # Load chat history
                 chat_histories = []
-                for key in user_data:
-                    if key.startswith("chat_"):
-                        chat_id = key.replace("chat_", "")
-                        title = user_data.get(f"title_{chat_id}", chat_id)
-                        chat_histories.append(title)
+                for chat_id in user_data["chat_history"]:
+                    title = user_data.get(f"title_{chat_id}", chat_id)
+                    chat_histories.append((title, chat_id))
                 
                 return (
                     gr.update(visible=False),  # Hide login group
