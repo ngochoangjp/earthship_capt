@@ -1344,8 +1344,8 @@ def create_user_interface():
                 if f"title_{chat_id}" not in user_data:
                     user_data[f"title_{chat_id}"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                        title = user_data.get(f"title_{existing_chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                        chat_histories.append((title, existing_chat_id))
+                    title = user_data.get(f"title_{existing_chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    chat_histories.append((title, existing_chat_id))
 
                 return chat_histories, gr.update(visible=False)
             return [], gr.update(visible=False)
@@ -1434,7 +1434,6 @@ def create_user_interface():
         )
 
     return user_interface
-
 # ************************************************************************
 # *                     Launch User Interface                          *
 # ************************************************************************
