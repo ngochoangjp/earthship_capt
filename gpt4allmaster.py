@@ -8,9 +8,10 @@ from pathlib import Path
 import gradio as gr
 import ollama
 from datetime import datetime
-import tiktoken  # Import the tiktoken library
+import tiktoken
 import requests
 from bs4 import BeautifulSoup
+import time
 
 # ************************************************************************
 # *                         Logging Configuration                        *
@@ -354,7 +355,28 @@ PREMADE_PROMPTS = {
         "links": ["https://www.youtube.com/watch?v=", "https://www.google.com/search?q="]
     }
 }
+# ************************************************************************
+# *                  Helper Functions (New)                              *
+# ************************************************************************
 
+def get_all_usernames():
+    """Gets a list of all registered usernames."""
+    usernames = []
+    for filename in os.listdir(USER_DATA_FOLDER):
+        if os.path.isdir(os.path.join(USER_DATA_FOLDER, filename)):
+            usernames.append(filename)
+    return usernames
+
+def get_chat_titles(username):
+    """Gets the titles of all chats for a user."""
+    user_data = load_user_data(username)
+    if user_data:
+        chat_titles = [
+            (user_data.get(f"title_{chat_id}", f"Chat {chat_id}"), chat_id)
+            for chat_id in user_data.get("chat_history", {})
+        ]
+        return chat_titles
+    return []
 # ************************************************************************
 # *                  Token Estimation Function                          *
 # ************************************************************************
@@ -428,15 +450,21 @@ def web_search_and_scrape(query, personality, links):
 
                 soup = BeautifulSoup(response.content, 'html.parser')
                 # Extract titles and snippets - adapt selectors as needed based on website structure
-                for result in soup.find_all('div', class_='search-result', limit=2):  # Example selector
-                    title = result.find('h3').text
-                    snippet = result.find('p').text
+                results = soup.find_all('div', class_='search-result', limit=2)  # Example selector
+                for result in results:
+                    title_elem = result.find('h3')
+                    snippet_elem = result.find('p')
+                    
+                    title = title_elem.text if title_elem else "No title"
+                    snippet = snippet_elem.text if snippet_elem else "No snippet"
+                    
                     search_results.append(f"{title}: {snippet}")
                     reference_links.add(link)
             except Exception as e:
                 logging.error(f"Error searching link {link}: {e}")
+                continue
 
-    # General web search using DuckDuckGo (example) if no specific results or if personality requires it
+    # General web search using DuckDuckGo if no specific results or if personality requires it
     if not search_results or personality == "Uncensored AI":
         try:
             headers = {'User-Agent': 'Mozilla/5.0'}
@@ -445,12 +473,19 @@ def web_search_and_scrape(query, personality, links):
 
             soup = BeautifulSoup(response.content, 'html.parser')
             # Extract titles, snippets, and links - adapt selectors as needed
-            for result in soup.find_all('div', class_='result', limit=3):
-                title = result.find('a', class_='result__a').text
-                snippet = result.find('a', class_='result__snippet').text
-                link = result.find('a', class_='result__a')['href']
-                search_results.append(f"{title}: {snippet}")
-                reference_links.add(link)
+            results = soup.find_all('div', class_='result', limit=3)
+            for result in results:
+                title_elem = result.find('a', class_='result__a')
+                snippet_elem = result.find('a', class_='result__snippet')
+                
+                if title_elem:
+                    title = title_elem.text
+                    link = title_elem.get('href', '')
+                    snippet = snippet_elem.text if snippet_elem else "No snippet"
+                    
+                    search_results.append(f"{title}: {snippet}")
+                    if link:
+                        reference_links.add(link)
         except Exception as e:
             logging.error(f"Error during general web search: {e}")
 
@@ -922,10 +957,13 @@ def create_user_interface():
                 return [], None
 
         # ************************************************************************
-        # *                   Generate Response Function                     *
+        # *                    Stream Chat Function (Modified)                 *
         # ************************************************************************
 
-        def generate_response(message, history, personality, ollama_model, login_info, current_chat_id, use_internet):
+        def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet):
+            """
+            Streams the response from Ollama word by word with a delay.
+            """
             global stop_generation
             stop_generation = False
 
@@ -942,20 +980,20 @@ def create_user_interface():
                 if personality in EXAMPLE_RESPONSES:
                     example = random.choice(EXAMPLE_RESPONSES[personality])
                     personality_prompt = f"""
-        {personality_prompt}
+                {personality_prompt}
 
-        IMPORTANT: You must follow these rules in your responses:
-        1. Always maintain the personality and speaking style shown in the example below
-        2. Include emotional expressions and actions in parentheses like in the example
-        3. Use similar language patterns and mannerisms
-        4. Keep the same level of formality and tone
-        5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại
+                IMPORTANT: You must follow these rules in your responses:
+                1. Always maintain the personality and speaking style shown in the example below
+                2. Include emotional expressions and actions in parentheses like in the example
+                3. Use similar language patterns and mannerisms
+                4. Keep the same level of formality and tone
+                5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại
 
-        Example response style to follow:
-        {example}
+                Example response style to follow:
+                {example}
 
-        Remember: Your every response must follow this style exactly, including the emotional expressions and actions in parentheses.
-        """
+                Remember: Your every response must follow this style exactly, including the emotional expressions and actions in parentheses.
+                """
 
                 # Add user profile information to system message
                 if login_info["logged_in"]:
@@ -968,18 +1006,18 @@ def create_user_interface():
                         age = str(profile.get('age', '')) if profile.get('age') is not None else ''
 
                         profile_info = f"""
-        Thông tin người dùng:
-        - Tên: {profile.get('real_name', '')}
-        - Tuổi: {age}
-        - Giới tính: {profile.get('gender', '')}
-        - Chiều cao: {height} cm
-        - Cân nặng: {weight} kg
-        - Nghề nghiệp: {profile.get('job', '')}
-        - Phần trăm cơ: {profile.get('muscle_percentage', '')}
-        - Phần trăm mỡ: {profile.get('fat_percentage', '')}
-        - Ăn chay: {'Có' if profile.get('vegan', False) else 'Không'}
-        - Tính cách: {profile.get('personality', '')}
-        """.encode('utf-8').decode('utf-8')
+                Thông tin người dùng:
+                - Tên: {profile.get('real_name', '')}
+                - Tuổi: {age}
+                - Giới tính: {profile.get('gender', '')}
+                - Chiều cao: {height} cm
+                - Cân nặng: {weight} kg
+                - Nghề nghiệp: {profile.get('job', '')}
+                - Phần trăm cơ: {profile.get('muscle_percentage', '')}
+                - Phần trăm mỡ: {profile.get('fat_percentage', '')}
+                - Ăn chay: {'Có' if profile.get('vegan', False) else 'Không'}
+                - Tính cách: {profile.get('personality', '')}
+                """.encode('utf-8').decode('utf-8')
                         personality_prompt = f"{personality_prompt}\n{profile_info}"
 
                 # Create the conversation history
@@ -1045,18 +1083,37 @@ def create_user_interface():
                 # Generate response using ollama.chat
                 response_complete = ""
                 search_links = [] # Initialize search_links here
-                for chunk in ollama.chat(
-                    model=AVAILABLE_MODELS[ollama_model],
+                
+                # Stream response from Ollama
+                response_stream = ollama.chat(
+                    model=AVAILABLE_MODELS.get(ollama_model, ollama_model), # Use get to handle potential KeyError
                     messages=messages,
                     stream=True
-                ):
+                )
+                
+                accumulated_response = ""
+                
+                for chunk in response_stream:
                     if stop_generation:
                         break
-                    if 'message' in chunk:
-                        response_chunk = chunk['message']['content']
-                        response_complete += response_chunk
+                    # Access the content correctly from the chunk
+                    response_chunk = chunk['message']['content']
+                    accumulated_response += response_chunk
+                    
+                    # Split into words and add to response_complete with delay
+                    words = accumulated_response.split()
+                    for word in words:
+                        response_complete += word + " "
                         yield response_complete, list(set(search_links)) if use_internet else []
+                        time.sleep(0.1)  # Adjust delay as needed
 
+                    accumulated_response = ""  # Reset for the next chunk
+
+                # Yield any remaining part of accumulated_response
+                if accumulated_response:
+                    response_complete += accumulated_response
+                    yield response_complete, list(set(search_links)) if use_internet else []
+                        
             except Exception as e:
                 logging.error(f"Error generating response: {str(e)}")
                 yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.", []
@@ -1261,11 +1318,12 @@ def create_user_interface():
             try:
                 # Convert display name to technical model name if it exists in mapping
                 ollama_model = MODEL_DISPLAY_NAMES.get(model, model)
-                for chunk, search_links_chunk in generate_response(user_message, history[:-1], personality, ollama_model, login_info, current_chat_id, use_internet):
+                for chunk, search_links_chunk in stream_chat(user_message, history[:-1], login_info, personality, ollama_model, current_chat_id, use_internet):  # Correct order of arguments
                     new_content = chunk[len(bot_message):]
                     bot_message = chunk
                     search_links.extend(search_links_chunk)
                     history[-1][1] = bot_message
+                    yield history, list(set(search_links)), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id) # Use helper function, set value
 
                 # Add reference links if available
                 if search_links:
@@ -1287,13 +1345,12 @@ def create_user_interface():
                     # Update the current chat's history in user_data
                     user_data["chat_history"][current_chat_id] = history
 
-
                     # Update user_data (including chat title)
                     save_user_data(login_info["username"], user_data)
 
                     # Update the chat history dropdown (using datetime)
                     chat_titles = [
-                        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), chat_id)
+                        (f"Chat {chat_id}", chat_id)
                         for chat_id in user_data["chat_history"]
                     ]
 
@@ -1338,14 +1395,12 @@ def create_user_interface():
             user_data = load_user_data(username)
 
             if user_data:
-            # Update the title for the specific chat_id using a timestamp if it doesn't exist
-                if f"title_{chat_id}" not in user_data:
-                    user_data[f"title_{chat_id}"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                    title = user_data.get(f"title_{existing_chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    chat_histories.append((title, existing_chat_id))
+                user_data[f"title_{chat_id}"] = new_name  # Directly set the new name
+                save_user_data(username, user_data)
+                chat_histories = get_chat_titles(username) # Use the helper function
 
                 return chat_histories, gr.update(visible=False)
+
             return [], gr.update(visible=False)
 
         # ************************************************************************
