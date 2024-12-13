@@ -964,7 +964,7 @@ def create_user_interface():
                 if chat_history is None:
                     # Handle case where chat history file doesn't exist
                     logging.warning(f"Chat history not found for chat ID {chat_id}")
-                    return [], chat_id  # Return empty history and current chat ID
+                    return [], chat_id, gr.update()  # Return empty history, current chat ID, and a Gradio update
                 
                 # Get the timestamp for the selected chat
                 chat_timestamp = user_data.get(f"title_{chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -1101,26 +1101,56 @@ def create_user_interface():
                 for chunk in response_stream:
                     if stop_generation:
                         break
-                    # Access the content correctly from the chunk
-                    response_chunk = chunk['message']['content']
-                    accumulated_response += response_chunk
-                    #  New Logic for Paragraph Handling
-                    paragraphs = accumulated_response.split('\n') # Split into paragraphs
-                    formatted_response = ""
-                    for paragraph in paragraphs:
-                        formatted_response += paragraph.strip() + "\n" # Add each paragraph with newline
+                # Update the history safely
+                if history and len(history[-1]) >= 2: # Check if safe to update
+                    history[-1][1] = bot_message
+                elif history:
+                    history[-1].append(bot_message) # Append to history[-1] if it has only one element
+                else:
+                    history.append([None, bot_message]) # Append a new element if history is empty
 
-                    # Split into words and add to response_complete with delay
-                    words = accumulated_response.split()
-                    for word in words:
-                        response_complete += word + " "
-                        yield response_complete, list(set(search_links)) if use_internet else []
-                        time.sleep(0.05)  # Adjust delay as needed
+                yield history, list(set(search_links)) if use_internet else [], gr.update(choices=get_chat_titles(login_info["username"]))
+                # Access the content correctly from the chunk
+                response_chunk = chunk['message']['content']
+                accumulated_response += response_chunk
+                #  New Logic for Paragraph Handling
+                paragraphs = accumulated_response.split('\n') # Split into paragraphs
+                formatted_response = ""
+                for paragraph in paragraphs:
+                    formatted_response += paragraph.strip() + "\n" # Add each paragraph with newline
+                # Post-processing with improved step detection and word joining:
+                # Regex to match step markers (more flexible) or newlines as explicit step separators
+                potential_steps = re.split(r'(?:\n+|^)(?:Bước\s*\d+[:;.\s-]+|\d+[:;.\s-]+|•\s*)', formatted_response)
 
-                    accumulated_response = ""  # Reset for the next chunk
+                formatted_response = ""
+                for i, step in enumerate(potential_steps):
+                    step = step.strip()
+                    if i == 0 and not re.match(r'Bước\s*\d+|^\d+|•', step) : # First part before step 1 if exist
+                        formatted_response += step +"\n\n" # newline to separate if needed
+                        continue
+
+                    if i % 2 == 1: # Step markers (odd indices)
+                        formatted_response += f"**{step}** "  # Bold step markers
+                    elif step:  # Step content (even indices, excluding empty strings)
+                        # Join common English words split by the tokenizer:
+                        step = re.sub(r"\b(es)\s+(press)\s+(o)\b", r"\1\2\3", step, flags=re.IGNORECASE)
+                        step = re.sub(r"\b(French)\s+(press)\b", r"\1 \2", step, flags=re.IGNORECASE)  #fix spacing
+                        # Add more word-joining regexes as needed for other terms
+                        formatted_response += step + "\n\n"  # Double newline for better separation
+                bot_message = formatted_response # Assign bot_message here
+                # Split into words and add to response_complete with delay
+                words = formatted_response.split()
+                for word in words:
+                    response_complete += word + " "
+                    yield response_complete, list(set(search_links)) if use_internet else []
+                    time.sleep(0.05)  # Adjust delay as needed
+                accumulated_response = ""  # Reset for the next chunk
+                    
+                history[-1][1] = bot_message  # Update history inside the loop
+                yield history, list(set(search_links)) if use_internet else [], gr.update(choices=get_chat_titles(login_info["username"]))
 
                 # Yield any remaining part of accumulated_response
-                        if accumulated_response:
+                if accumulated_response:
                     paragraphs = accumulated_response.split('\n')
                     formatted_response = ""
                     for paragraph in paragraphs:
@@ -1322,6 +1352,10 @@ def create_user_interface():
 
         def bot_response(history, login_info, personality, model, current_chat_id, use_internet):
             current_chat_id = str(current_chat_id)
+
+            history = history or [] # Initialize history here if it's None
+            if not history:
+                history = [[None, None]] # Initialize with a placeholder
 
             if not history:
                 return history or [], [], gr.update(choices=[])
