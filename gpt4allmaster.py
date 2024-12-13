@@ -365,8 +365,22 @@ def get_chat_titles(username):
         ]
         return chat_titles
     return []
+
+def format_user_info(profile):
+    """Format user profile information into a readable string."""
+    if not profile:
+        return ""
+    
+    formatted_info = []
+    for key, value in profile.items():
+        if value and key != "password":  # Skip empty values and password
+            formatted_key = key.replace("_", " ").title()
+            formatted_info.append(f"{formatted_key}: {value}")
+    
+    return "\n".join(formatted_info)
+
 # ************************************************************************
-# *                  Token Estimation Function                          *
+# *                      Token Estimation Function                          *
 # ************************************************************************
 
 def estimate_tokens(text):
@@ -1091,7 +1105,7 @@ def create_user_interface():
                         
             except Exception as e:
                 logging.error(f"Error generating response: {str(e)}")
-                yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.", []
+                yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại.", []
 
         # ************************************************************************
         # *                       Stop Generation Function                    *
