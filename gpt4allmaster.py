@@ -25,6 +25,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # ************************************************************************
 
 DEFAULT_PASSWORD = "admin"
+USER_DATA_FOLDER = "userdata"
+os.makedirs(USER_DATA_FOLDER, exist_ok=True)
 
 # Available Ollama Models
 MODEL_DISPLAY_NAMES = {
@@ -679,6 +681,20 @@ custom_css = """
 # *                     Create User Interface Function                  *
 # ************************************************************************
 
+
+#  ASCII Art - Loading Message (Example)
+def loading_message():
+    print(r"""
+    Loading...
+    [          ] 0%
+    [##        ] 20%
+    [####      ] 40%
+    [######    ] 60%
+    [########  ] 80%
+    [##########] 100%
+    """)
+
+
 def create_user_interface():
     with gr.Blocks(css=custom_css) as user_interface:
         gr.Markdown("# Earthship AI")
@@ -1088,19 +1104,28 @@ def create_user_interface():
                     # Access the content correctly from the chunk
                     response_chunk = chunk['message']['content']
                     accumulated_response += response_chunk
-                    
+                    #  New Logic for Paragraph Handling
+                    paragraphs = accumulated_response.split('\n') # Split into paragraphs
+                    formatted_response = ""
+                    for paragraph in paragraphs:
+                        formatted_response += paragraph.strip() + "\n" # Add each paragraph with newline
+
                     # Split into words and add to response_complete with delay
                     words = accumulated_response.split()
                     for word in words:
                         response_complete += word + " "
                         yield response_complete, list(set(search_links)) if use_internet else []
-                        time.sleep(0.1)  # Adjust delay as needed
+                        time.sleep(0.05)  # Adjust delay as needed
 
                     accumulated_response = ""  # Reset for the next chunk
 
                 # Yield any remaining part of accumulated_response
-                if accumulated_response:
-                    response_complete += accumulated_response
+                        if accumulated_response:
+                    paragraphs = accumulated_response.split('\n')
+                    formatted_response = ""
+                    for paragraph in paragraphs:
+                        formatted_response += paragraph.strip() + "\n"
+                    response_complete += formatted_response
                     yield response_complete, list(set(search_links)) if use_internet else []
                         
             except Exception as e:
@@ -1486,3 +1511,5 @@ user_interface.launch(
     server_port=7871,
     share=False,
 )
+# Call loading_message during startup
+loading_message()
