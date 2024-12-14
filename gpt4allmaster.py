@@ -676,6 +676,11 @@ def create_user_interface():
                 username = login_info["username"]
                 user_data = load_user_data(username)
 
+                if user_data is None:
+                    user_data = {"next_chat_id": 1, "chat_history": {"1": []}, "settings": {}}  # Initialize user data if None
+                    save_chat_history(username, "1", [])  # Create first chat file
+                    save_user_data(username, user_data)
+
                 # Generate new chat ID
                 new_chat_id = str(user_data["next_chat_id"])
                 user_data["next_chat_id"] += 1
@@ -707,7 +712,7 @@ def create_user_interface():
             if login_info["logged_in"] and chat_id:
                 username = login_info["username"]
                 user_data = load_user_data(username)
-                if chat_id in user_data["chat_history"]:
+                if user_data is not None and chat_id in user_data.get("chat_history", {}):
                     chat_history = load_chat_history(username, chat_id)
 
                 if chat_history is None:
@@ -758,6 +763,21 @@ def create_user_interface():
                     5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại Ví dụ về phong cách phản hồi cần tuân theo: {example} 
                     Nhớ rằng: Mỗi phản hồi của bạn phải tuân theo phong cách này một cách chính xác, bao gồm cả các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn.
                     """
+
+                # Add user profile information to system message if allowed
+                if share_info_checkbox.value:
+                    user_data = load_user_data(login_info["username"])
+                    if user_data and "profile" in user_data:
+                        profile = user_data["profile"]
+                        user_info = format_user_info(profile)
+                        personality_prompt += f"\n\nUser Information:\n{user_info}"
+
+                # Skip personality prompt for certain personalities
+                skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
+                if skip_personality_prompt:
+                    system_message = personality_data.get("system", "")
+                else:
+                    system_message = f"{personality_prompt}\n\n{personality_data.get('system', '')}"
 
                 # Create the conversation history
                 messages = []
@@ -1083,7 +1103,75 @@ def create_user_interface():
             inputs=[login_info, chat_history_dropdown],
             outputs=[chatbot, current_chat_id]
         )
+        # ************************************************************************
+        # *                    Add Premade Prompt Function                    *
+        # ************************************************************************
+        
+        def add_premade_prompt(prompt_name, current_msg, history):
+            prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
+            if prompt_data:
+                user_instruction = prompt_data.get("user", "")
+                new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
+                return "", new_history
+            return current_msg, history
+                    
+        # ************************************************************************
+        # *                       Rename Chat Function                         *
+        # ************************************************************************
 
+        def rename_chat(new_name, chat_id, login_info):
+            if not login_info["logged_in"] or not chat_id:
+                return [], gr.update(visible=False)
+
+            username = login_info["username"]
+            user_data = load_user_data(username)
+
+            if user_data:
+                user_data[f"title_{chat_id}"] = new_name  # Directly set the new name
+                save_user_data(username, user_data)
+                chat_histories = get_chat_titles(username) # Use the helper function
+
+                return chat_histories, gr.update(visible=False)
+
+            return [], gr.update(visible=False)        
+        # ************************************************************************
+        # *                  Show Rename Textbox Function                     *
+        # ************************************************************************
+
+        def show_rename_textbox():
+            return gr.update(visible=True)
+
+        def hide_rename_textbox():
+            return gr.update(visible=False)
+
+        # ************************************************************************
+        # *                    Connect Remaining Components                   *
+        # ************************************************************************
+
+        new_chat_button.click(
+            fn=new_chat,
+            inputs=[login_info, personality, model],
+            outputs=[chatbot, current_chat_id, chat_history_dropdown]
+        )
+
+        personality.change(
+            fn=new_chat,
+            inputs=[login_info, personality, model],
+            outputs=[chatbot, current_chat_id, chat_history_dropdown]
+        )
+
+        create_user_button.click(
+            fn=create_new_user,
+            inputs=[username, password],
+            outputs=[login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message, user_selector, admin_panel, current_chat_id, chat_history_dropdown, personality, model]
+        )
+
+        msg.submit(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
+            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
+        )
+        send.click(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
+            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
+        )
         # ************************************************************************
         # *                    Add Premade Prompt Function                    *
         # ************************************************************************
