@@ -235,7 +235,9 @@ def save_user_data(username, data):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logging.error(f"Error in save_user_data: {e}")
-
+    except Exception as e:
+        logging.error(f"Error generating response: {str(e)}")
+        yield history, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
 # ************************************************************************
 # *                    Load User Data Function                         *
 # ************************************************************************
@@ -686,7 +688,7 @@ def create_user_interface():
         # ************************************************************************
         # *                    Stream Chat Function (Modified)                 *
         # ************************************************************************
-
+        search_links_set = set()
         def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet):
             """
             Streams the response from Ollama word by word with a delay.
@@ -697,6 +699,7 @@ def create_user_interface():
             # Ensure current_chat_id is a string
             current_chat_id = str(current_chat_id)
 
+            search_links_set = set()
             try:
                 response = ""
                 personality_data = PERSONALITIES.get(personality)
@@ -758,12 +761,19 @@ def create_user_interface():
 
                     # Perform web search if required by the prompt and if allowed
                     if use_internet:
-                        search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
+                        if current_prompt:
+                            search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
+                        elif personality_links:
+                            search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
+                        else:
+                            search_summary, search_links = "Không tìm thấy thông tin liên quan.", []
+
                         if search_summary != "Không tìm thấy thông tin liên quan.":
                             messages.append({
                                 'role': 'assistant',
                                 'content': search_summary
                             })
+                search_links_set.update(search_links)  # Add links from web search
                 # Add conversation history for the current chat
                 if history:
                     for user_msg, assistant_msg in history:
@@ -785,17 +795,28 @@ def create_user_interface():
                 })
 
                 # Perform web search if required by the personality and if allowed
-                if use_internet and personality_links:
-                    search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
+                search_links_set = set()  # Initialize search_links here
+                print(f"Initial value of search_links: {search_links}")  # Check initial value
+                if use_internet:
+                    if current_prompt:
+                        search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
+                    elif personality_links:
+                        search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
+                    else:
+                        search_summary = "Không tìm thấy thông tin liên quan."
+                
                     if search_summary != "Không tìm thấy thông tin liên quan.":
                         messages.append({
                             'role': 'assistant',
                             'content': search_summary
                         })
-
+                search_links_set.update(search_links)  # Add links to the set
+                        
+                search_links_set.update(search_links)  # Add links from web search
+                print(f"Value of search_links after web search: {search_links}")  # Check after search
                 # Generate response using ollama.chat
                 response_complete = ""
-                search_links = [] # Initialize search_links here
+                search_links_set = set() # Initialize search_links heres
                 
                 # Stream response from Ollama
                 response_stream = ollama.chat(
@@ -803,33 +824,70 @@ def create_user_interface():
                     messages=messages,
                     stream=True
                 )
+                bot_message = ""
                 
-                accumulated_response = ""
                 
                 for chunk in response_stream:
                     if stop_generation:
                         break
                     # Access the content correctly from the chunk
                     response_chunk = chunk['message']['content']
-                    accumulated_response += response_chunk
+                    bot_message += response_chunk
                     
-                    # Split into words and add to response_complete with delay
-                    words = accumulated_response.split()
-                    for word in words:
-                        response_complete += word + " "
-                        yield response_complete, list(set(search_links)) if use_internet else []
-                        time.sleep(0.1)  # Adjust delay as needed
+                    
+                    # Split into paragraphs
+                    paragraphs = bot_message.split('\n')
+                    formatted_response = ""
+                    for paragraph in paragraphs:
+                        formatted_response += paragraph.strip() + "\n"
 
-                    accumulated_response = ""  # Reset for the next chunk
+                    # Post-processing with improved step detection and word joining:
+                    potential_steps = re.split(r'(?:\n+|^)(?:Bước\s*\d+[:;.\s-]+|\d+[:;.\s-]+|•\s*)', formatted_response)
 
-                # Yield any remaining part of accumulated_response
-                if accumulated_response:
-                    response_complete += accumulated_response
-                    yield response_complete, list(set(search_links)) if use_internet else []
-                        
+                    formatted_response = ""
+                    for i, step in enumerate(potential_steps):
+                        step = step.strip()
+                        if i == 0 and not re.match(r'Bước\s*\d+|^\d+|•', step):
+                            formatted_response += step + "\n\n"
+                            continue
+
+                        if i % 2 == 1:  # Step markers
+                            formatted_response += f"**{step}** "
+                        elif step:  # Step content
+                            step = re.sub(r"\b(es)\s+(press)\s+(o)\b", r"\1\2\3", step, flags=re.IGNORECASE)
+                            step = re.sub(r"\b(French)\s+(press)\b", r"\1 \2", step, flags=re.IGNORECASE)
+                            formatted_response += step + "\n\n"
+
+                    # Yield the formatted_response in chunks
+                    yield formatted_response, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
+                    time.sleep(0.05) #add delay between chunks
+                # Add reference links if available
+                if search_links:
+                    print(f"Value of search_links before adding to response: {search_links}") # Check before adding to response
+                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in search_links_set])
+                    formatted_response += ref_links_message
+
+                # Update history after the loop is finished
+                if history and len(history[-1]) == 2 and history[-1][1] is None:
+                    history[-1][1] = formatted_response
+                elif history and len(history[-1]) == 2:
+                    history[-1][1] = formatted_response
+                else:
+                    history.append([message, formatted_response])
             except Exception as e:
                 logging.error(f"Error generating response: {str(e)}")
-                yield "Xin lỗi, nhưng tôi đã gặp lỗi trong khi xử lý yêu cầu của bạn. Vui lòng thử lại.", []
+            # Add reference links if available
+            if search_links_set:
+                ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in search_links_set])
+                history[-1][1] += ref_links_message
+            
+               
+        
+            # Yield a default value for history in case of an error
+            yield [], [], gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
+            # Yield the updated history, search links, and chat titles
+            yield history, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)        
+            time.sleep(0.05)  # add delay between chunks
 
         # ************************************************************************
         # *                       Stop Generation Function                    *
@@ -1026,22 +1084,29 @@ def create_user_interface():
                 return history or [], [], gr.update(choices=[])
 
             user_message = history[-1][0]
-            bot_message = ""
-            search_links = []
+            bot_message = ""  # Initialize bot_message
+            search_links = []  # Initialize search_links
+
             try:
-                # Convert display name to technical model name if it exists in mapping
+        # Convert display name to technical model name
                 ollama_model = MODEL_DISPLAY_NAMES.get(model, model)
-                for chunk, search_links_chunk in stream_chat(user_message, history[:-1], login_info, personality, ollama_model, current_chat_id, use_internet):  # Correct order of arguments
-                    new_content = chunk[len(bot_message):]
-                    bot_message = chunk
-                    search_links.extend(search_links_chunk)
-                    history[-1][1] = bot_message
-                    yield history, list(set(search_links)), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id) # Use helper function, set value
+
+                # Call stream_chat and collect results
+                final_history = []
+                final_search_links_set = set()
+                final_chat_titles_update = None
+
+                for h, search_links_chunk, chat_titles_update in stream_chat(
+                    user_message, history[:-1], login_info, personality, ollama_model, current_chat_id, use_internet
+                ):
+                    final_history = h
+                    final_search_links_set.update(search_links_chunk)
+                    final_chat_titles_update = chat_titles_update
 
                 # Add reference links if available
-                if search_links:
-                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in set(search_links)])
-                    history[-1][1] = bot_message + ref_links_message
+                if final_search_links_set:
+                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in final_search_links_set])
+                    final_history[-1][1] += ref_links_message
 
                 # Save the updated chat history
                 if login_info["logged_in"]:
@@ -1053,10 +1118,10 @@ def create_user_interface():
                         user_data["chat_history"] = {}
 
                     # Save each chat to a separate file
-                    save_chat_history(username, current_chat_id, history)
+                    save_chat_history(username, current_chat_id, final_history)
 
                     # Update the current chat's history in user_data
-                    user_data["chat_history"][current_chat_id] = history
+                    user_data["chat_history"][current_chat_id] = final_history
 
                     # Update user_data (including chat title)
                     save_user_data(login_info["username"], user_data)
@@ -1070,20 +1135,28 @@ def create_user_interface():
                     # Save each chat to a separate file
                     save_chat_history(username, current_chat_id, history)
 
-                    if current_chat_id in user_data["chat_history"]:
+                    if current_chat_id not in user_data["chat_history"]:
                         user_data["chat_history"][current_chat_id] = history
                         save_user_data(login_info["username"], user_data)
                     else:
                         logging.warning(f"Chat ID {current_chat_id} not found in user data.")
 
-                yield history, list(set(search_links)), gr.update(choices=chat_titles, value=current_chat_id)
+                # Yield the final state
+                yield final_history, list(final_search_links_set), final_chat_titles_update
 
-            except Exception as e:
-                logging.error(f"Error in bot_response: {str(e)}")
+                
                 error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
                 history[-1][1] = error_message  # Update with error message
                 yield history, [], gr.update(choices=[]) # Ensure returning 3 values
-
+            
+            except Exception as e:
+                logging.error(f"Error in bot_response: {str(e)}")
+                error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
+                if history and history[-1]:
+                    history[-1][1] = error_message
+                else:
+                    history = [[user_message, error_message]]
+                yield history, [], gr.update(choices=[], value=None)
         # ************************************************************************
         # *                    Add Premade Prompt Function                    *
         # ************************************************************************
