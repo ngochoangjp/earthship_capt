@@ -13,7 +13,23 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
+# Initialize logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Initialize global variables
+USER_DATA_FOLDER = "userdata"
+PERSONALITIES = {}
+EXAMPLE_RESPONSES = {}
+MODEL_DISPLAY_NAMES = {
+    "Mistral": "mistral",
+    "Llama2": "llama2",
+    "Codellama": "codellama",
+    "Phi": "phi"
+}
+
+# Create user data folder if it doesn't exist
+if not os.path.exists(USER_DATA_FOLDER):
+    os.makedirs(USER_DATA_FOLDER)
 
 # ************************************************************************
 # *                         Import prompts                        *
@@ -29,8 +45,25 @@ def load_prompts(file_path):
 
 # Load the prompts from prompts.txt
 prompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'
-EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)
 
+# Initialize global variables
+EXAMPLE_RESPONSES = {}
+PERSONALITIES = {}
+PREMADE_PROMPTS = {}
+
+def load_global_prompts():
+    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS
+    try:
+        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)
+    except Exception as e:
+        logging.error(f"Error loading prompts: {e}")
+        PERSONALITIES["Trợ lý"] = {
+            "system": "Bạn là một trợ lý AI hữu ích.",
+            "links": ["https://vi.wikipedia.org", "https://www.google.com.vn"]
+        }
+
+# Load prompts at startup
+load_global_prompts()
 
 # ************************************************************************
 # *                         Logging Configuration                        *
@@ -235,9 +268,7 @@ def save_user_data(username, data):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logging.error(f"Error in save_user_data: {e}")
-    except Exception as e:
-        logging.error(f"Error generating response: {str(e)}")
-        yield history, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
+
 # ************************************************************************
 # *                    Load User Data Function                         *
 # ************************************************************************
@@ -406,8 +437,18 @@ custom_css = """
 # ************************************************************************
 
 def create_user_interface():
+    # Ensure prompts are loaded
+    if not PERSONALITIES:
+        load_global_prompts()
+    
+    personality_choices = list(PERSONALITIES.keys())
+    model_choices = list(MODEL_DISPLAY_NAMES.keys())
+
     with gr.Blocks(css=custom_css) as user_interface:
         gr.Markdown("# Earthship AI")
+
+        # Initialize user data directory if it doesn't exist
+        os.makedirs(USER_DATA_FOLDER, exist_ok=True)
 
         # Enable Gradio's built-in queue
         user_interface.queue(
@@ -523,14 +564,14 @@ def create_user_interface():
                         # Right column (personality, model, internet, new chat, premade prompts)
                         with gr.Column(scale=1):
                             personality = gr.Dropdown(
-                                choices=list(PERSONALITIES.keys()),
-                                value="Trợ lý",
+                                choices=personality_choices,
+                                value=personality_choices[0],
                                 label="Chọn tính cách AI",
                                 interactive=True
                             )
                             model = gr.Dropdown(
-                                choices=list(MODEL_DISPLAY_NAMES.keys()),
-                                value="Vietai",
+                                choices=model_choices,
+                                value=model_choices[0],
                                 label="Chọn mô hình AI",
                                 interactive=True
                             )
@@ -538,8 +579,6 @@ def create_user_interface():
                             new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
                             gr.Markdown("### Thư viện công cụ")
                             premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
-
-
 
         # ************************************************************************
         # *                  Save Profile Info Function (Corrected)           *
@@ -688,7 +727,7 @@ def create_user_interface():
         # ************************************************************************
         # *                    Stream Chat Function (Modified)                 *
         # ************************************************************************
-        search_links_set = set()
+
         def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet):
             """
             Streams the response from Ollama word by word with a delay.
@@ -699,7 +738,6 @@ def create_user_interface():
             # Ensure current_chat_id is a string
             current_chat_id = str(current_chat_id)
 
-            search_links_set = set()
             try:
                 response = ""
                 personality_data = PERSONALITIES.get(personality)
@@ -710,71 +748,25 @@ def create_user_interface():
                 if personality in EXAMPLE_RESPONSES:
                     example = random.choice(EXAMPLE_RESPONSES[personality])
                     personality_prompt = f"""
-                {personality_prompt}
+                    {personality_prompt}
 
-                QUAN TRỌNG: Bạn phải tuân theo các quy tắc sau trong các phản hồi của mình: 
-                1. Luôn duy trì tính cách và phong cách nói chuyện như trong ví dụ dưới đây 
-                2. Bao gồm các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn như trong ví dụ 
-                3. Sử dụng các mẫu ngôn ngữ và cách diễn đạt tương tự 
-                4. Giữ nguyên mức độ trang trọng và giọng điệu 
-                5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại Ví dụ về phong cách phản hồi cần tuân theo: {example} 
-                Nhớ rằng: Mỗi phản hồi của bạn phải tuân theo phong cách này một cách chính xác, bao gồm cả các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn.
-                """
+                    QUAN TRỌNG: Bạn phải tuân theo các quy tắc sau trong các phản hồi của mình: 
+                    1. Luôn duy trì tính cách và phong cách nói chuyện như trong ví dụ dưới đây 
+                    2. Bao gồm các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn như trong ví dụ 
+                    3. Sử dụng các mẫu ngôn ngữ và cách diễn đạt tương tự 
+                    4. Giữ nguyên mức độ trang trọng và giọng điệu 
+                    5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại Ví dụ về phong cách phản hồi cần tuân theo: {example} 
+                    Nhớ rằng: Mỗi phản hồi của bạn phải tuân theo phong cách này một cách chính xác, bao gồm cả các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn.
+                    """
 
-                # Add user profile information to system message if allowed
-                if share_info_checkbox.value:
-                    user_data = load_user_data(login_info["username"])
-                    if user_data and "profile" in user_data:
-                        profile = user_data["profile"]
-                        user_info = format_user_info(profile)
-                        personality_prompt += f"\n\nUser Information:\n{user_info}"
-
-                # Skip personality prompt for certain personalities
-                skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
-                if skip_personality_prompt:
-                    system_message = personality_data.get("system", "")
-                else:
-                    system_message = f"{personality_prompt}\n\n{personality_data.get('system', '')}"
-                
                 # Create the conversation history
                 messages = []
                 messages.append({
                     'role': 'system',
-                    'content': system_message
+                    'content': personality_prompt
                 })
 
-                # Check if the message is from a premade prompt
-                current_prompt = None
-                for prompt_name, prompt_data in PREMADE_PROMPTS.items():
-                    if prompt_data["user"] in message:
-                        current_prompt = prompt_data
-                        break
-
-                if current_prompt:
-                    # Add the system prompt for the premade prompt
-                    messages.append({
-                        'role': 'system',
-                        'content': current_prompt["system"]
-                    })
-                    # Remove the instruction text from the user's message
-                    message = message.replace(current_prompt["user"], "").strip()
-
-                    # Perform web search if required by the prompt and if allowed
-                    if use_internet:
-                        if current_prompt:
-                            search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
-                        elif personality_links:
-                            search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
-                        else:
-                            search_summary, search_links = "Không tìm thấy thông tin liên quan.", []
-
-                        if search_summary != "Không tìm thấy thông tin liên quan.":
-                            messages.append({
-                                'role': 'assistant',
-                                'content': search_summary
-                            })
-                search_links_set.update(search_links)  # Add links from web search
-                # Add conversation history for the current chat
+                # Add conversation history
                 if history:
                     for user_msg, assistant_msg in history:
                         if user_msg:
@@ -794,100 +786,42 @@ def create_user_interface():
                     'content': message
                 })
 
-                # Perform web search if required by the personality and if allowed
-                search_links_set = set()  # Initialize search_links here
-                print(f"Initial value of search_links: {search_links}")  # Check initial value
-                if use_internet:
-                    if current_prompt:
-                        search_summary, search_links = web_search_and_scrape(message, personality, current_prompt.get("links", []))
-                    elif personality_links:
-                        search_summary, search_links = web_search_and_scrape(message, personality, personality_links)
-                    else:
-                        search_summary = "Không tìm thấy thông tin liên quan."
-                
-                    if search_summary != "Không tìm thấy thông tin liên quan.":
-                        messages.append({
-                            'role': 'assistant',
-                            'content': search_summary
-                        })
-                search_links_set.update(search_links)  # Add links to the set
-                        
-                search_links_set.update(search_links)  # Add links from web search
-                print(f"Value of search_links after web search: {search_links}")  # Check after search
                 # Generate response using ollama.chat
-                response_complete = ""
-                search_links_set = set() # Initialize search_links heres
-                
-                # Stream response from Ollama
                 response_stream = ollama.chat(
-                    model=AVAILABLE_MODELS.get(ollama_model, ollama_model), # Use get to handle potential KeyError
+                    model=MODEL_DISPLAY_NAMES.get(ollama_model, ollama_model),
                     messages=messages,
                     stream=True
                 )
-                bot_message = ""
-                
+
+                history = history or []
+                current_response = ""
                 
                 for chunk in response_stream:
                     if stop_generation:
                         break
+
                     # Access the content correctly from the chunk
-                    response_chunk = chunk['message']['content']
-                    bot_message += response_chunk
-                    
-                    
-                    # Split into paragraphs
-                    paragraphs = bot_message.split('\n')
-                    formatted_response = ""
-                    for paragraph in paragraphs:
-                        formatted_response += paragraph.strip() + "\n"
+                    if 'message' in chunk and 'content' in chunk['message']:
+                        response_chunk = chunk['message']['content']
+                        current_response += response_chunk
+                        
+                        # Create a new history with the current message and accumulated response
+                        new_history = history.copy()
+                        new_history.append([message, current_response])  # Use list instead of tuple
+                        yield new_history
 
-                    # Post-processing with improved step detection and word joining:
-                    potential_steps = re.split(r'(?:\n+|^)(?:Bước\s*\d+[:;.\s-]+|\d+[:;.\s-]+|•\s*)', formatted_response)
+                # Save final chat history
+                if login_info.get("logged_in"):
+                    username = login_info["username"]
+                    final_history = history.copy()
+                    final_history.append([message, current_response])  # Use list instead of tuple
+                    save_chat_history(username, current_chat_id, final_history)
 
-                    formatted_response = ""
-                    for i, step in enumerate(potential_steps):
-                        step = step.strip()
-                        if i == 0 and not re.match(r'Bước\s*\d+|^\d+|•', step):
-                            formatted_response += step + "\n\n"
-                            continue
-
-                        if i % 2 == 1:  # Step markers
-                            formatted_response += f"**{step}** "
-                        elif step:  # Step content
-                            step = re.sub(r"\b(es)\s+(press)\s+(o)\b", r"\1\2\3", step, flags=re.IGNORECASE)
-                            step = re.sub(r"\b(French)\s+(press)\b", r"\1 \2", step, flags=re.IGNORECASE)
-                            formatted_response += step + "\n\n"
-
-                    # Yield the formatted_response in chunks
-                    yield formatted_response, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
-                    time.sleep(0.05) #add delay between chunks
-                # Add reference links if available
-                if search_links:
-                    print(f"Value of search_links before adding to response: {search_links}") # Check before adding to response
-                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in search_links_set])
-                    formatted_response += ref_links_message
-
-                # Update history after the loop is finished
-                if history and len(history[-1]) == 2 and history[-1][1] is None:
-                    history[-1][1] = formatted_response
-                elif history and len(history[-1]) == 2:
-                    history[-1][1] = formatted_response
-                else:
-                    history.append([message, formatted_response])
             except Exception as e:
-                logging.error(f"Error generating response: {str(e)}")
-            # Add reference links if available
-            if search_links_set:
-                ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in search_links_set])
-                history[-1][1] += ref_links_message
-            
-               
-        
-            # Yield a default value for history in case of an error
-            yield [], [], gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)
-            # Yield the updated history, search links, and chat titles
-            yield history, list(search_links_set), gr.update(choices=get_chat_titles(login_info["username"]), value=current_chat_id)        
-            time.sleep(0.05)  # add delay between chunks
+                logging.error(f"Error in stream_chat: {str(e)}")
+                history = history or []
+                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])  # Use list instead of tuple
+                yield history
 
         # ************************************************************************
         # *                       Stop Generation Function                    *
@@ -1077,155 +1011,56 @@ def create_user_interface():
         # *                        Bot Response Function (Modified)            *
         # ************************************************************************
 
-        def bot_response(history, login_info, personality, model, current_chat_id, use_internet):
-            current_chat_id = str(current_chat_id)
-
-            if not history:
-                return history or [], [], gr.update(choices=[])
-
-            user_message = history[-1][0]
-            bot_message = ""  # Initialize bot_message
-            search_links = []  # Initialize search_links
-
-            try:
-        # Convert display name to technical model name
-                ollama_model = MODEL_DISPLAY_NAMES.get(model, model)
-
-                # Call stream_chat and collect results
-                final_history = []
-                final_search_links_set = set()
-                final_chat_titles_update = None
-
-                for h, search_links_chunk, chat_titles_update in stream_chat(
-                    user_message, history[:-1], login_info, personality, ollama_model, current_chat_id, use_internet
-                ):
-                    final_history = h
-                    final_search_links_set.update(search_links_chunk)
-                    final_chat_titles_update = chat_titles_update
-
-                # Add reference links if available
-                if final_search_links_set:
-                    ref_links_message = "\n\n**Reference Links:**\n" + "\n".join([f"- {link}" for link in final_search_links_set])
-                    final_history[-1][1] += ref_links_message
-
-                # Save the updated chat history
-                if login_info["logged_in"]:
-                    username = login_info["username"]
-                    user_data = load_user_data(username)
-
-                    # Ensure the chat_history dictionary exists
-                    if "chat_history" not in user_data:
-                        user_data["chat_history"] = {}
-
-                    # Save each chat to a separate file
-                    save_chat_history(username, current_chat_id, final_history)
-
-                    # Update the current chat's history in user_data
-                    user_data["chat_history"][current_chat_id] = final_history
-
-                    # Update user_data (including chat title)
-                    save_user_data(login_info["username"], user_data)
-
-                    # Update the chat history dropdown (using datetime)
-                    chat_titles = [
-                        (f"Chat {chat_id}", chat_id)
-                        for chat_id in user_data["chat_history"]
-                    ]
-
-                    # Save each chat to a separate file
-                    save_chat_history(username, current_chat_id, history)
-
-                    if current_chat_id not in user_data["chat_history"]:
-                        user_data["chat_history"][current_chat_id] = history
-                        save_user_data(login_info["username"], user_data)
-                    else:
-                        logging.warning(f"Chat ID {current_chat_id} not found in user data.")
-
-                # Yield the final state
-                yield final_history, list(final_search_links_set), final_chat_titles_update
-
-                
-                error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
-                history[-1][1] = error_message  # Update with error message
-                yield history, [], gr.update(choices=[]) # Ensure returning 3 values
+        def bot_response(message, history, login_info, personality, model, current_chat_id, use_internet):
+            if not message:
+                return [] if history is None else history
             
+            history = [] if history is None else history
+            
+            try:
+                for new_history in stream_chat(message, history, login_info, personality, model, current_chat_id, use_internet):
+                    if isinstance(new_history, list):
+                        history = new_history
+                        yield history
             except Exception as e:
                 logging.error(f"Error in bot_response: {str(e)}")
-                error_message = "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại."
-                if history and history[-1]:
-                    history[-1][1] = error_message
-                else:
-                    history = [[user_message, error_message]]
-                yield history, [], gr.update(choices=[], value=None)
-        # ************************************************************************
-        # *                    Add Premade Prompt Function                    *
-        # ************************************************************************
-        
-        def add_premade_prompt(prompt_name, current_msg, history):
-            prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
-            if prompt_data:
-                user_instruction = prompt_data.get("user", "")
-                new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
-                return "", new_history
-            return current_msg, history
+                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])  # Use list instead of tuple
+                yield history
+
+        # Set up chat handlers
+        def on_submit(message, history, login_info, current_chat_id, personality_choice, model_choice, use_internet):
+            # First, update history with user message
+            history = history or []
+            history.append([message, None])
             
-        # ************************************************************************
-        # *                       Rename Chat Function                         *
-        # ************************************************************************
+            # Then generate bot response
+            try:
+                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet):
+                    if isinstance(new_history, list):
+                        yield new_history
+            except Exception as e:
+                logging.error(f"Error in on_submit: {str(e)}")
+                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])
+                yield history
 
-        def rename_chat(new_name, chat_id, login_info):
-            if not login_info["logged_in"] or not chat_id:
-                return [], gr.update(visible=False)
-
-            username = login_info["username"]
-            user_data = load_user_data(username)
-
-            if user_data:
-                user_data[f"title_{chat_id}"] = new_name  # Directly set the new name
-                save_user_data(username, user_data)
-                chat_histories = get_chat_titles(username) # Use the helper function
-
-                return chat_histories, gr.update(visible=False)
-
-            return [], gr.update(visible=False)
-
-        # ************************************************************************
-        # *                  Show Rename Textbox Function                     *
-        # ************************************************************************
-
-        def show_rename_textbox():
-            return gr.update(visible=True)
-
-        def hide_rename_textbox():
-            return gr.update(visible=False)
-
-        # ************************************************************************
-        # *                    Connect Remaining Components                   *
-        # ************************************************************************
-
-        new_chat_button.click(
-            fn=new_chat,
-            inputs=[login_info, personality, model],
-            outputs=[chatbot, current_chat_id, chat_history_dropdown]
+        msg.submit(
+            on_submit,
+            inputs=[msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox],
+            outputs=chatbot
+        ).then(
+            lambda: "",
+            None,
+            msg
         )
 
-        personality.change(
-            fn=new_chat,
-            inputs=[login_info, personality, model],
-            outputs=[chatbot, current_chat_id, chat_history_dropdown]
-        )
-
-        create_user_button.click(
-            fn=create_new_user,
-            inputs=[username, password],
-            outputs=[login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message, user_selector, admin_panel, current_chat_id, chat_history_dropdown, personality, model]
-        )
-
-        msg.submit(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
-        )
-        send.click(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
+        send.click(
+            on_submit,
+            inputs=[msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox],
+            outputs=chatbot
+        ).then(
+            lambda: "",
+            None,
+            msg
         )
 
         stop.click(stop_gen)
@@ -1249,6 +1084,18 @@ def create_user_interface():
             outputs=[chatbot, current_chat_id]
         )
 
+        # ************************************************************************
+        # *                    Add Premade Prompt Function                    *
+        # ************************************************************************
+        
+        def add_premade_prompt(prompt_name, current_msg, history):
+            prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
+            if prompt_data:
+                user_instruction = prompt_data.get("user", "")
+                new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
+                return "", new_history
+            return current_msg, history
+
         for button, prompt_name in zip(premade_prompt_buttons, PREMADE_PROMPTS.keys()):
             button.click(
                 add_premade_prompt,
@@ -1257,19 +1104,18 @@ def create_user_interface():
             )
 
         rename_chat_button.click(
-            fn=show_rename_textbox,
+            fn=lambda: gr.update(visible=True),
             inputs=[],
             outputs=[rename_chat_textbox]
         )
 
         rename_chat_textbox.submit(
-            fn=rename_chat,
+            fn=lambda new_name, chat_id, login_info: (
+                gr.update(choices=[(new_name, chat_id) for chat_id in load_user_data(login_info["username"])["chat_history"]]),
+                gr.update(visible=False)
+            ),
             inputs=[rename_chat_textbox, current_chat_id, login_info],
             outputs=[chat_history_dropdown, rename_chat_textbox]
-        ).then(
-            fn=hide_rename_textbox,
-            inputs=[],
-            outputs=[rename_chat_textbox]
         )
 
     return user_interface
