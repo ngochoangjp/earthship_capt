@@ -538,47 +538,46 @@ def create_user_interface():
                         outputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, show_profile_button, password_input, password_error]
                     )
 
+                    
+
+                # Chat and inputs section
+
+                with gr.Column(scale=3):
+                    chatbot = gr.Chatbot(elem_id="chatbot", height=1000)
+                    msg = gr.Textbox(
+                        label="Nhập tin nhắn của bạn",
+                        placeholder="Nhập tin nhắn và nhấn Enter",
+                        elem_id="msg"
+                    )
+                    send = gr.Button("Gửi", variant="primary")
+                    stop = gr.Button("Dừng tạo câu trả lời")
+
+                # Right column (personality, model, internet, new chat, premade prompts)
+                with gr.Column(scale=1):
+                    personality = gr.Dropdown(
+                        choices=personality_choices,
+                        value=personality_choices[0],
+                        label="Chọn tính cách AI",
+                        interactive=True
+                    )
+                    model = gr.Dropdown(
+                        choices=model_choices,
+                        value=model_choices[0],
+                        label="Chọn mô hình AI",
+                        interactive=True
+                    )
+                    use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
+                    new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
+                    
+                    gr.Markdown("### Thư viện công cụ")
+                    premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
+                    
                     gr.Markdown("## Lịch sử trò chuyện")
                     chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True, allow_custom_value=True)
                     with gr.Row():
                         load_chat_button = gr.Button("Load Chat")
                         rename_chat_button = gr.Button("Rename Chat")
                     rename_chat_textbox = gr.Textbox(placeholder="Enter new chat name", visible=False)
-
-                # Chat and tools section
-                with gr.Column(scale=3):
-                    with gr.Row():
-                        # Chat section (chatbot, message input)
-                        with gr.Column(scale=3):
-                            chatbot = gr.Chatbot(elem_id="chatbot", height=500)
-                            with gr.Column(scale=1):
-                                msg = gr.Textbox(
-                                    label="Nhập tin nhắn của bạn",
-                                    placeholder="Nhập tin nhắn và nhấn Enter",
-                                    elem_id="msg"
-                                )
-                                send = gr.Button("Gửi", variant="primary")
-                            with gr.Row():
-                                stop = gr.Button("Dừng tạo câu trả lời")
-
-                        # Right column (personality, model, internet, new chat, premade prompts)
-                        with gr.Column(scale=1):
-                            personality = gr.Dropdown(
-                                choices=personality_choices,
-                                value=personality_choices[0],
-                                label="Chọn tính cách AI",
-                                interactive=True
-                            )
-                            model = gr.Dropdown(
-                                choices=model_choices,
-                                value=model_choices[0],
-                                label="Chọn mô hình AI",
-                                interactive=True
-                            )
-                            use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
-                            new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
-                            gr.Markdown("### Thư viện công cụ")
-                            premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
 
         # ************************************************************************
         # *                  Save Profile Info Function (Corrected)           *
