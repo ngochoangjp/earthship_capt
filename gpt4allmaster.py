@@ -20,12 +20,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 USER_DATA_FOLDER = "userdata"
 PERSONALITIES = {}
 EXAMPLE_RESPONSES = {}
-MODEL_DISPLAY_NAMES = {
-    "Mistral": "mistral",
-    "Llama2": "llama2",
-    "Codellama": "codellama",
-    "Phi": "phi"
-}
+
 
 # Create user data folder if it doesn't exist
 if not os.path.exists(USER_DATA_FOLDER):
@@ -82,8 +77,6 @@ DEFAULT_PASSWORD = "admin"
 MODEL_DISPLAY_NAMES = {
     "Vietai": "Tuanpham/t-visstar-7b:latest",
     "codegpt": "marco-o1",
-    "Llama 2": "llama2",
-    "CodeLlama": "codellama"
 }
 
 # Technical model names for Ollama
