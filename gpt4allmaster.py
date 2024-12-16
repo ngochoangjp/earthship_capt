@@ -1261,6 +1261,6 @@ def create_user_interface():
 user_interface = create_user_interface()
 user_interface.launch(
     server_name="127.0.0.1",
-    server_port=7875,
+    server_port=7871,
     share=False,
 )
