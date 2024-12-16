@@ -453,6 +453,7 @@ def create_user_interface():
 
         login_info = gr.State(value={"username": "", "password": "", "logged_in": False, "is_admin": False})
         current_chat_id = gr.State()
+        selected_user = gr.State(value="0")  # Add this line
 
         # Add avatar components
         user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
@@ -507,20 +508,35 @@ def create_user_interface():
                     )
 
                     show_profile_button.click(
-                        fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
+                        fn=lambda: (gr.update(visible=True), gr.update(visible=True, value="")),
                         inputs=[],
-                        outputs=[password_input, show_profile_button]
+                        outputs=[password_input, password_error]
                     )
 
                     password_input.submit(
                         fn=lambda pwd, info: (
-                            [gr.update(visible=True, value=load_user_data(info["username"]).get("profile", {}).get(field, "")) for field in ["real_name", "age", "gender", "height", "weight", "job", "muscle_percentage", "passion", "vegan", "personality"]] +
-                            [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)]
+                            [gr.update(visible=True) for _ in range(10)] +  # 10 profile fields
+                            [
+                                gr.update(visible=True),  # save_profile
+                                gr.update(visible=True),  # hide_profile_button
+                                gr.update(visible=False),  # password_input
+                                gr.update(visible=False)   # password_error
+                            ]
                             if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
-                            else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]
+                            else [gr.update(visible=False) for _ in range(10)] +
+                            [
+                                gr.update(visible=False),  # save_profile
+                                gr.update(visible=False),  # hide_profile_button
+                                gr.update(visible=True),   # password_input
+                                gr.update(visible=True, value="Incorrect password")  # password_error
+                            ]
                         ),
                         inputs=[password_input, login_info],
-                        outputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error]
+                        outputs=[
+                            real_name, age, gender, height, weight, job,
+                            muscle_percentage, passion, vegan_checkbox, personality_text,
+                            save_profile, hide_profile_button, password_input, password_error
+                        ]
                     )
                     
 
@@ -917,76 +933,106 @@ def create_user_interface():
         def login(username, password):
             """Handle user login."""
             if not username or not password:
-                return (
-                    gr.update(visible=True),
-                    gr.update(visible=False),
-                    {"username": "", "password": "", "logged_in": False, "is_admin": False},
-                    [],
-                    None,
-                    None,
-                    gr.update(visible=True, value="Vui lòng nhập tên đăng nhập và mật khẩu."),
-                    [],
-                    gr.update(visible=False),
-                    None,
-                    [],
-                    gr.update(),
-                    gr.update()
-                )
+                return [
+                    gr.update(visible=True),  # login_group
+                    gr.update(visible=False),  # chat_group
+                    {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login_info
+                    [],  # chatbot
+                    None,  # current_chat_id
+                    None,  # personality
+                    "Vui lòng nhập tên đăng nhập và mật khẩu.",  # login_message
+                    [],  # chat_history_dropdown
+                    gr.update(visible=False),  # admin_panel
+                    "0",  # selected_user
+                    [],  # admin_chatbot
+                    gr.update(choices=personality_choices),  # personality choices
+                    gr.update(choices=model_choices),  # model choices
+                    # Profile fields
+                    gr.update(value="", visible=False),  # real_name
+                    gr.update(value=None, visible=False),  # age
+                    gr.update(value="", visible=False),  # gender
+                    gr.update(value=None, visible=False),  # height
+                    gr.update(value=None, visible=False),  # weight
+                    gr.update(value="", visible=False),  # job
+                    gr.update(value="", visible=False),  # muscle_percentage
+                    gr.update(value="", visible=False),  # passion
+                    gr.update(value=False, visible=False),  # vegan_checkbox
+                    gr.update(value="", visible=False),  # personality_text
+                    gr.update(visible=False),  # save_profile
+                    gr.update(visible=False),  # hide_profile_button
+                    gr.update(visible=True),   # show_profile_button
+                    gr.update(visible=False),  # password_input
+                    gr.update(visible=False)   # password_error
+                ]
 
             user_data = load_user_data(username)
             if not user_data or user_data.get("password") != password:
-                return (
-                    gr.update(visible=True),
-                    gr.update(visible=False),
-                    {"username": "", "password": "", "logged_in": False, "is_admin": False},
-                    [],
-                    None,
-                    None,
-                    gr.update(visible=True, value="Tên đăng nhập hoặc mật khẩu không đúng."),
-                    [],
-                    gr.update(visible=False),
-                    None,
-                    [],
-                    gr.update(),
-                    gr.update()
-                )
+                return [
+                    gr.update(visible=True),  # login_group
+                    gr.update(visible=False),  # chat_group
+                    {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login_info
+                    [],  # chatbot
+                    None,  # current_chat_id
+                    None,  # personality
+                    "Tên đăng nhập hoặc mật khẩu không đúng.",  # login_message
+                    [],  # chat_history_dropdown
+                    gr.update(visible=False),  # admin_panel
+                    "0",  # selected_user
+                    [],  # admin_chatbot
+                    gr.update(choices=personality_choices),  # personality choices
+                    gr.update(choices=model_choices),  # model choices
+                    # Profile fields
+                    gr.update(value="", visible=False),  # real_name
+                    gr.update(value=None, visible=False),  # age
+                    gr.update(value="", visible=False),  # gender
+                    gr.update(value=None, visible=False),  # height
+                    gr.update(value=None, visible=False),  # weight
+                    gr.update(value="", visible=False),  # job
+                    gr.update(value="", visible=False),  # muscle_percentage
+                    gr.update(value="", visible=False),  # passion
+                    gr.update(value=False, visible=False),  # vegan_checkbox
+                    gr.update(value="", visible=False),  # personality_text
+                    gr.update(visible=False),  # save_profile
+                    gr.update(visible=False),  # hide_profile_button
+                    gr.update(visible=True),   # show_profile_button
+                    gr.update(visible=False),  # password_input
+                    gr.update(visible=False)   # password_error
+                ]
 
-            is_first_login = user_data.get("first_login", True)
-            if is_first_login:
-                # Update first_login flag
-                user_data["first_login"] = False
-                save_user_data(username, user_data)
-                # Show profile fields for first login
-                profile_visibility = True
-                show_profile_btn_visibility = False
-            else:
-                # Hide profile fields for subsequent logins
-                profile_visibility = False
-                show_profile_btn_visibility = True
-
-            return (
+            # Get profile data
+            profile_data = user_data.get("profile", {})
+            
+            return [
                 gr.update(visible=False),  # login_group
                 gr.update(visible=True),   # chat_group
-                {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},
+                {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},  # login_info
                 [],  # chatbot
                 None,  # current_chat_id
-                None,  # selected_personality
+                None,  # personality
                 gr.update(visible=False),  # login_message
-                [],  # chat_history
+                [],  # chat_history_dropdown
                 gr.update(visible=username.lower() == "admin"),  # admin_panel
                 "0",  # selected_user
                 [],  # admin_chatbot
-                gr.update(choices=list(PERSONALITIES.keys())),  # personality_choices
-                gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # model_choices
-                # Profile field updates - Load values but hide them on subsequent logins
-                *[gr.update(visible=profile_visibility, value=user_data.get("profile", {}).get(field, "")) for field in [
-                    "real_name", "age", "gender", "height", "weight", "job", 
-                    "muscle_percentage", "passion", "vegan", "personality"
-                ]],
-                gr.update(visible=profile_visibility),  # save_profile
-                gr.update(visible=profile_visibility),  # hide_profile_button
-                gr.update(visible=show_profile_btn_visibility)  # show_profile_button
-            )
+                gr.update(choices=personality_choices),  # personality choices
+                gr.update(choices=model_choices),  # model choices
+                # Profile fields with values from user_data
+                gr.update(value=profile_data.get("real_name", ""), visible=False),
+                gr.update(value=profile_data.get("age", None), visible=False),
+                gr.update(value=profile_data.get("gender", ""), visible=False),
+                gr.update(value=profile_data.get("height", None), visible=False),
+                gr.update(value=profile_data.get("weight", None), visible=False),
+                gr.update(value=profile_data.get("job", ""), visible=False),
+                gr.update(value=profile_data.get("muscle_percentage", ""), visible=False),
+                gr.update(value=profile_data.get("passion", ""), visible=False),
+                gr.update(value=profile_data.get("vegan_checkbox", False), visible=False),
+                gr.update(value=profile_data.get("personality_text", ""), visible=False),
+                gr.update(visible=False),  # save_profile
+                gr.update(visible=False),  # hide_profile_button
+                gr.update(visible=True),   # show_profile_button
+                gr.update(visible=False),  # password_input
+                gr.update(visible=False)   # password_error
+            ]
         # ************************************************************************
         # *                     Connect Admin Panel Components                 *
         # ************************************************************************
@@ -1005,13 +1051,82 @@ def create_user_interface():
             fn=login,
             inputs=[username, password],
             outputs=[
-                login_group, chat_group, login_info, chatbot,
-                user_avatar, bot_avatar, login_message,
-                user_selector, admin_panel, current_chat_id, chat_history_dropdown,
-                personality, model
+                login_group,  # Group
+                chat_group,   # Group
+                login_info,   # State
+                chatbot,      # Chatbot
+                current_chat_id,  # State
+                personality,  # Dropdown
+                login_message,  # Markdown
+                chat_history_dropdown,  # Dropdown
+                admin_panel,  # Group
+                selected_user,  # State
+                admin_chatbot,  # Chatbot
+                personality,  # Dropdown
+                model,  # Dropdown
+                # Profile fields
+                real_name,  # Textbox
+                age,  # Number
+                gender,  # Textbox
+                height,  # Number
+                weight,  # Number
+                job,  # Textbox
+                muscle_percentage,  # Textbox
+                passion,  # Textbox
+                vegan_checkbox,  # Checkbox
+                personality_text,  # TextArea
+                save_profile,  # Button
+                hide_profile_button,  # Button
+                show_profile_button,  # Button
+                password_input,  # Textbox
+                password_error  # Markdown
             ]
         )
-            
+
+        # Connect hide profile button
+        hide_profile_button.click(
+            fn=lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]),
+            inputs=[],
+            outputs=[
+                real_name, age, gender, height, weight, job,
+                muscle_percentage, passion, vegan_checkbox, personality_text,
+                save_profile, hide_profile_button, show_profile_button
+            ]
+        )
+
+        # Connect show profile button
+        show_profile_button.click(
+            lambda: [gr.update(visible=True), gr.update(visible=True, value="")],
+            None,
+            [password_input, password_error]
+        )
+
+        # Connect password input
+        password_input.submit(
+            fn=lambda pwd, info: (
+                [gr.update(visible=True) for _ in range(10)] +  # 10 profile fields
+                [
+                    gr.update(visible=True),  # save_profile
+                    gr.update(visible=True),  # hide_profile_button
+                    gr.update(visible=False),  # password_input
+                    gr.update(visible=False)   # password_error
+                ]
+                if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
+                else [gr.update(visible=False) for _ in range(10)] +
+                [
+                    gr.update(visible=False),  # save_profile
+                    gr.update(visible=False),  # hide_profile_button
+                    gr.update(visible=True),   # password_input
+                    gr.update(visible=True, value="Incorrect password")  # password_error
+                ]
+            ),
+            inputs=[password_input, login_info],
+            outputs=[
+                real_name, age, gender, height, weight, job,
+                muscle_percentage, passion, vegan_checkbox, personality_text,
+                save_profile, hide_profile_button, password_input, password_error
+            ]
+        )
 
         # ************************************************************************
         # *                         User Message Function                      *
@@ -1118,39 +1233,63 @@ def create_user_interface():
                 new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
                 return "", new_history
             return current_msg, history
-                    
-        # ************************************************************************
-        # *                       Rename Chat Function                         *
-        # ************************************************************************
 
-        def rename_chat(new_name, chat_id, login_info):
-            if not login_info["logged_in"] or not chat_id:
-                return [], gr.update(visible=False)
+        for button, prompt_name in zip(premade_prompt_buttons, PREMADE_PROMPTS.keys()):
+            button.click(
+                add_premade_prompt,
+                inputs=[gr.State(prompt_name), msg, chatbot],
+                outputs=[msg, chatbot]
+            )
 
-            username = login_info["username"]
-            user_data = load_user_data(username)
+        rename_chat_button.click(
+            fn=lambda: gr.update(visible=True),
+            inputs=[],
+            outputs=[rename_chat_textbox]
+        )
 
-            if user_data:
-                user_data[f"title_{chat_id}"] = new_name  # Directly set the new name
-                save_user_data(username, user_data)
-                chat_histories = get_chat_titles(username) # Use the helper function
+        rename_chat_textbox.submit(
+            fn=lambda new_name, chat_id, login_info: (
+                get_chat_titles(login_info["username"]),
+                gr.update(visible=False)
+            ),
+            inputs=[rename_chat_textbox, current_chat_id, login_info],
+            outputs=[chat_history_dropdown, rename_chat_textbox]
+        )
 
-                return chat_histories, gr.update(visible=False)
+        # Verify password and show profile
+        def verify_password_and_show_profile(password_attempt, login_info):
+            if password_attempt == login_info["password"]:
+                return [
+                    *[gr.update(visible=True) for _ in range(10)],  # Show all profile fields
+                    gr.update(visible=True),   # save_profile
+                    gr.update(visible=True),   # hide_profile_button
+                    gr.update(visible=False),  # show_profile_button
+                    gr.update(visible=False),  # password_input
+                    gr.update(visible=False)   # password_error
+                ]
+            else:
+                return [
+                    *[gr.update(visible=False) for _ in range(10)],  # Keep profile fields hidden
+                    gr.update(visible=False),  # save_profile
+                    gr.update(visible=False),  # hide_profile_button
+                    gr.update(visible=True),   # show_profile_button
+                    gr.update(visible=True),   # password_input
+                    gr.update(visible=True, value="Incorrect password. Please try again.")  # password_error
+                ]
 
-            return [], gr.update(visible=False)        
-        # ************************************************************************
-        # *                  Show Rename Textbox Function                     *
-        # ************************************************************************
+        show_profile_button.click(
+            lambda: [gr.update(visible=True), gr.update(visible=True, value="")],
+            None,
+            [password_input, password_error]
+        )
 
-        def show_rename_textbox():
-            return gr.update(visible=True)
-
-        def hide_rename_textbox():
-            return gr.update(visible=False)
-
-        # ************************************************************************
-        # *                    Connect Remaining Components                   *
-        # ************************************************************************
+        password_input.submit(
+            verify_password_and_show_profile,
+            [password_input, login_info],
+            [real_name, age, gender, height, weight, job, muscle_percentage, 
+             passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, 
+             show_profile_button, password_input, password_error]
+        )
 
         new_chat_button.click(
             fn=new_chat,
@@ -1168,67 +1307,6 @@ def create_user_interface():
             fn=create_new_user,
             inputs=[username, password],
             outputs=[login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message, user_selector, admin_panel, current_chat_id, chat_history_dropdown, personality, model]
-        )
-
-        msg.submit(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
-        )
-        send.click(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
-        )
-        stop.click(stop_gen)
-
-        save_profile.click(
-            save_profile_info,
-            inputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info],
-            outputs=[save_profile, real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, show_profile_button]
-        )
-    
-        
-        hide_profile_button.click(
-            fn=lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]),
-            inputs=[],
-            outputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, hide_profile_button, save_profile]
-        )
-
-        load_chat_button.click(
-            fn=load_selected_chat,
-            inputs=[login_info, chat_history_dropdown],
-            outputs=[chatbot, current_chat_id]
-        )
-        # ************************************************************************
-        # *                    Add Premade Prompt Function                    *
-        # ************************************************************************
-        
-        def add_premade_prompt(prompt_name, current_msg, history):
-            prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
-            if prompt_data:
-                user_instruction = prompt_data.get("user", "")
-                new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
-                return "", new_history
-            return current_msg, history
-
-        for button, prompt_name in zip(premade_prompt_buttons, PREMADE_PROMPTS.keys()):
-            button.click(
-                add_premade_prompt,
-                inputs=[gr.State(prompt_name), msg, chatbot],
-                outputs=[msg, chatbot]
-            )
-
-        rename_chat_button.click(
-            fn=show_rename_textbox,
-            inputs=[],
-            outputs=[rename_chat_textbox]
-        )
-
-        rename_chat_textbox.submit(
-            fn=rename_chat,
-            inputs=[rename_chat_textbox, current_chat_id, login_info],
-            outputs=[chat_history_dropdown, rename_chat_textbox]
-        ).then(
-            fn=hide_rename_textbox,
-            inputs=[],
-            outputs=[rename_chat_textbox]
         )
 
     return user_interface
