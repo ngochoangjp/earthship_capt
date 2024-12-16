@@ -576,7 +576,7 @@ def create_user_interface():
         # *                  Save Profile Info Function (Corrected)           *
         # ************************************************************************
 
-        def save_profile_info(real_name, age, gender, vegan_checkbox, height, weight, muscle_percentage, passion, job, personality_text, login_info):
+        def save_profile_info(real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info):
             if not login_info.get("logged_in", False):
                 return
 
@@ -606,8 +606,20 @@ def create_user_interface():
                     "personality": personality_text
                 }
                 save_user_data(username, user_data)
-                return [gr.update(visible=False), gr.update(value=""), gr.update(value=None), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(value=""), gr.update(visible=True)]
-
+                return [
+                    gr.update(visible=False),  # save_profile
+                    gr.update(value=""),       # real_name
+                    gr.update(value=None),     # age
+                    gr.update(value=""),       # gender
+                    gr.update(value=""),       # height
+                    gr.update(value=""),       # weight
+                    gr.update(value=""),       # job
+                    gr.update(value=""),       # muscle_percentage
+                    gr.update(value=""),       # passion
+                    gr.update(value=False),    # vegan_checkbox
+                    gr.update(value=""),       # personality_text
+                    gr.update(visible=True)    # show_profile_button
+                ]
         # ************************************************************************
         # *                     Load Profile Info Function                      *
         # ************************************************************************
@@ -1249,6 +1261,6 @@ def create_user_interface():
 user_interface = create_user_interface()
 user_interface.launch(
     server_name="127.0.0.1",
-    server_port=7871,
+    server_port=7875,
     share=False,
 )
