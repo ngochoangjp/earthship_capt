@@ -350,6 +350,7 @@ def create_new_user(username, password):
         "next_chat_id": 0,
         "user_avatar": None,
         "bot_avatar": None,
+        "first_login": True,  # Add flag for first login
         "profile": {
             "real_name": "",
             "age": "",
@@ -914,73 +915,8 @@ def create_user_interface():
         # ************************************************************************
 
         def login(username, password):
-            user_data = load_user_data(username)
-
-            if user_data is None:
-                # User does not exist
-                return (
-                    gr.update(visible=True),  # Keep login group visible
-                    gr.update(visible=False),  # Hide chat interface
-                    {"username": "", "password": "", "logged_in": False, "is_admin": False},
-                    [],  # Clear chatbot
-                    None,  # No user avatar
-                    None,  # No bot avatar
-                    gr.update(visible=True, value="Tên đăng nhập không tồn tại. Vui lòng tạo người dùng mới."),
-                    gr.update(choices=[]),  # Clear user selector
-                    gr.update(visible=False),  # Hide admin panel
-                    None,  # Reset current chat ID
-                    gr.update(choices=[]),  # Clear chat history dropdown
-                    gr.update(),  # Empty update for personality
-                    gr.update(),  # Empty update for model
-                    gr.update(visible=False) # confirm_button
-                )
-
-            # User exists, check password
-            if user_data.get("password") == password:
-                # Successful login
-                login_state = {
-                    "username": username,
-                    "password": password,
-                    "logged_in": True,
-                    "is_admin": user_data.get("is_admin", False)
-                }
-
-                # Load user's avatar or set default
-                user_avatar_path = user_data.get("user_avatar", "default_user.png")
-                bot_avatar_path = user_data.get("bot_avatar", "default_bot.png")
-
-                # Load chat history
-                chat_histories = []
-                for chat_id in user_data["chat_history"]:
-                    title = user_data.get(f"title_{chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    chat_histories.append((title, chat_id))
-
-                # Load the last chat ID or start a new chat
-                last_chat_id = str(user_data["next_chat_id"] - 1) if user_data["next_chat_id"] > 0 else "0"
-
-                # Check if last_chat_id exists in chat_history, if not, create it
-                if last_chat_id not in user_data["chat_history"]:
-                    user_data["chat_history"][last_chat_id] = []
-                    save_user_data(username, user_data)
-
-                return (
-                    gr.update(visible=False),  # Hide login group
-                    gr.update(visible=True),  # Show chat interface
-                    login_state,  # Update login info
-                    user_data["chat_history"].get(last_chat_id, [])[-10:],  # Load last 10 messages of the last chat
-                    user_avatar_path,  # Set user avatar
-                    bot_avatar_path,  # Set bot avatar
-                    gr.update(visible=False),  # Hide login message
-                    gr.update(choices=list(get_all_usernames()) if login_state["is_admin"] else []),  # Update user selector
-                    gr.update(visible=login_state["is_admin"]),  # Show/hide admin panel
-                    last_chat_id,  # Set current chat ID
-                    gr.update(choices=chat_histories),  # Update chat history dropdown
-                    gr.update(choices=list(PERSONALITIES.keys())),  # Update personality choices
-                    gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # Update model choices
-                    gr.update(visible=False) # confirm_button
-                )
-            else:
-                # Invalid password
+            """Handle user login."""
+            if not username or not password:
                 return (
                     gr.update(visible=True),
                     gr.update(visible=False),
@@ -988,15 +924,75 @@ def create_user_interface():
                     [],
                     None,
                     None,
-                    gr.update(visible=True, value="Mật khẩu không đúng. Vui lòng thử lại."),
+                    gr.update(visible=True, value="Vui lòng nhập tên đăng nhập và mật khẩu."),
                     [],
                     gr.update(visible=False),
                     None,
                     [],
-                    gr.update(),  # Empty update for personality
-                    gr.update(),   # Empty update for model
-                    gr.update(visible=False) # confirm_button
+                    gr.update(),
+                    gr.update()
                 )
+
+            user_data = load_user_data(username)
+            if not user_data or user_data.get("password") != password:
+                return (
+                    gr.update(visible=True),
+                    gr.update(visible=False),
+                    {"username": "", "password": "", "logged_in": False, "is_admin": False},
+                    [],
+                    None,
+                    None,
+                    gr.update(visible=True, value="Tên đăng nhập hoặc mật khẩu không đúng."),
+                    [],
+                    gr.update(visible=False),
+                    None,
+                    [],
+                    gr.update(),
+                    gr.update()
+                )
+
+            is_first_login = user_data.get("first_login", True)
+            if is_first_login:
+                # Update first_login flag
+                user_data["first_login"] = False
+                save_user_data(username, user_data)
+                # Show profile fields for first login
+                profile_visibility = True
+                show_profile_btn_visibility = False
+            else:
+                # Hide profile fields for subsequent logins
+                profile_visibility = False
+                show_profile_btn_visibility = True
+
+            return (
+                gr.update(visible=False),
+                gr.update(visible=True),
+                {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},
+                [],
+                None,
+                None,
+                gr.update(visible=False),
+                [],
+                gr.update(visible=username.lower() == "admin"),
+                "0",
+                [],
+                gr.update(choices=list(PERSONALITIES.keys())),
+                gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),
+                # Add profile field visibility updates
+                gr.update(visible=profile_visibility),  # real_name
+                gr.update(visible=profile_visibility),  # age
+                gr.update(visible=profile_visibility),  # gender
+                gr.update(visible=profile_visibility),  # height
+                gr.update(visible=profile_visibility),  # weight
+                gr.update(visible=profile_visibility),  # job
+                gr.update(visible=profile_visibility),  # muscle_percentage
+                gr.update(visible=profile_visibility),  # passion
+                gr.update(visible=profile_visibility),  # vegan_checkbox
+                gr.update(visible=profile_visibility),  # personality_text
+                gr.update(visible=profile_visibility),  # save_profile
+                gr.update(visible=profile_visibility),  # hide_profile_button
+                gr.update(visible=show_profile_btn_visibility)  # show_profile_button
+            )
         # ************************************************************************
         # *                     Connect Admin Panel Components                 *
         # ************************************************************************
