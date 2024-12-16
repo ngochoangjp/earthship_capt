@@ -965,30 +965,24 @@ def create_user_interface():
                 show_profile_btn_visibility = True
 
             return (
-                gr.update(visible=False),
-                gr.update(visible=True),
+                gr.update(visible=False),  # login_group
+                gr.update(visible=True),   # chat_group
                 {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},
-                [],
-                None,
-                None,
-                gr.update(visible=False),
-                [],
-                gr.update(visible=username.lower() == "admin"),
-                "0",
-                [],
-                gr.update(choices=list(PERSONALITIES.keys())),
-                gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),
-                # Add profile field visibility updates
-                gr.update(visible=profile_visibility),  # real_name
-                gr.update(visible=profile_visibility),  # age
-                gr.update(visible=profile_visibility),  # gender
-                gr.update(visible=profile_visibility),  # height
-                gr.update(visible=profile_visibility),  # weight
-                gr.update(visible=profile_visibility),  # job
-                gr.update(visible=profile_visibility),  # muscle_percentage
-                gr.update(visible=profile_visibility),  # passion
-                gr.update(visible=profile_visibility),  # vegan_checkbox
-                gr.update(visible=profile_visibility),  # personality_text
+                [],  # chatbot
+                None,  # current_chat_id
+                None,  # selected_personality
+                gr.update(visible=False),  # login_message
+                [],  # chat_history
+                gr.update(visible=username.lower() == "admin"),  # admin_panel
+                "0",  # selected_user
+                [],  # admin_chatbot
+                gr.update(choices=list(PERSONALITIES.keys())),  # personality_choices
+                gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # model_choices
+                # Profile field updates - Load values but hide them on subsequent logins
+                *[gr.update(visible=profile_visibility, value=user_data.get("profile", {}).get(field, "")) for field in [
+                    "real_name", "age", "gender", "height", "weight", "job", 
+                    "muscle_percentage", "passion", "vegan", "personality"
+                ]],
                 gr.update(visible=profile_visibility),  # save_profile
                 gr.update(visible=profile_visibility),  # hide_profile_button
                 gr.update(visible=show_profile_btn_visibility)  # show_profile_button
