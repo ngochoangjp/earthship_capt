@@ -438,6 +438,10 @@ def create_user_interface():
     personality_choices = list(PERSONALITIES.keys())
     model_choices = list(MODEL_DISPLAY_NAMES.keys())
 
+    def get_avatar_path(personality_name):
+        """Get the avatar path for a given personality"""
+        return os.path.join("icons", f"{personality_name.lower().replace(' ', '_')}.png")
+
     with gr.Blocks(css="""
         .message {
             display: flex;
@@ -475,6 +479,9 @@ def create_user_interface():
             transform: translateY(-50%);
             display: flex;
             gap: 5px;
+        }
+        .avatar-container img {
+            pointer-events: none;
         }
         """) as user_interface:
         gr.Markdown("# Earthship AI")
@@ -588,11 +595,47 @@ def create_user_interface():
                         elem_classes="custom-chatbot",
                         render_markdown=True,
                         container=True,
-                        avatar_images=["user.png", "bot.png"],
+                        avatar_images=[None, get_avatar_path("Trợ lý")],  # Only show bot avatar
                         show_copy_button=True,
                         show_share_button=False,
                         bubble_full_width=False,
                     )
+
+                    # Update avatar when personality changes
+                    def update_avatar(personality_name):
+                        return gr.update(avatar_images=[None, get_avatar_path(personality_name)])
+
+                    personality = gr.Dropdown(
+                        choices=personality_choices,
+                        value=personality_choices[0],
+                        label="Chọn tính cách AI",
+                        interactive=True
+                    )
+                    personality.change(
+                        fn=update_avatar,
+                        inputs=[personality],
+                        outputs=[chatbot]
+                    )
+
+                    model = gr.Dropdown(
+                        choices=model_choices,
+                        value=model_choices[0],
+                        label="Chọn mô hình AI",
+                        interactive=True
+                    )
+                    use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
+                    new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
+                    
+                    gr.Markdown("### Thư viện công cụ")
+                    premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
+                    
+                    gr.Markdown("## Lịch sử trò chuyện")
+                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
+                    with gr.Row():
+                        load_chat_button = gr.Button("Load Chat")
+                        rename_chat_button = gr.Button("Rename Chat")
+                    rename_chat_textbox = gr.Textbox(placeholder="Enter new chat name", visible=False)
+
                     with gr.Row():
                         with gr.Column(scale=12):
                             msg = gr.Textbox(
@@ -608,14 +651,42 @@ def create_user_interface():
                     stop = gr.Button("Dừng tạo câu trả lời")
 
                     # Add event handlers for the new buttons
-                    def generate_better_prompt(message):
+                    def generate_better_prompt(message, personality_choice):
                         if not message.strip():
                             return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
-                        return f"Dựa trên nội dung của bạn: '{message}', đây là một số gợi ý để cải thiện prompt:\n1. Thêm chi tiết về [điền vào]\n2. Xác định rõ mục đích [điền vào]\n3. Đặt ra giới hạn về [điền vào]"
+                        
+                        # Create a system message asking for prompt improvement
+                        system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
+                        Consider the following aspects:
+                        1. Clarity and specificity
+                        2. Context and background information
+                        3. Desired output format
+                        4. Constraints or requirements
+                        
+                        Provide specific suggestions based on the input text."""
+                        
+                        messages = [
+                            {
+                                'role': 'system',
+                                'content': system_message
+                            },
+                            {
+                                'role': 'user',
+                                'content': f"Please help me improve this prompt: {message}"
+                            }
+                        ]
+                        
+                        try:
+                            # Generate suggestions using the AI model
+                            response = generate_response(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
+                            return response
+                        except Exception as e:
+                            logging.error(f"Error in generate_better_prompt: {str(e)}")
+                            return "Xin lỗi, đã có lỗi xảy ra khi tạo gợi ý. Vui lòng thử lại."
 
                     prompt_helper.click(
                         fn=generate_better_prompt,
-                        inputs=[msg],
+                        inputs=[msg, personality],
                         outputs=[msg]
                     )
 
@@ -679,14 +750,42 @@ def create_user_interface():
                     chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
                     
                     # Add event handlers for the new buttons
-                    def generate_better_prompt(message):
+                    def generate_better_prompt(message, personality_choice):
                         if not message.strip():
                             return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
-                        return f"Dựa trên nội dung của bạn: '{message}', đây là một số gợi ý để cải thiện prompt:\n1. Thêm chi tiết về [điền vào]\n2. Xác định rõ mục đích [điền vào]\n3. Đặt ra giới hạn về [điền vào]"
+                        
+                        # Create a system message asking for prompt improvement
+                        system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
+                        Consider the following aspects:
+                        1. Clarity and specificity
+                        2. Context and background information
+                        3. Desired output format
+                        4. Constraints or requirements
+                        
+                        Provide specific suggestions based on the input text."""
+                        
+                        messages = [
+                            {
+                                'role': 'system',
+                                'content': system_message
+                            },
+                            {
+                                'role': 'user',
+                                'content': f"Please help me improve this prompt: {message}"
+                            }
+                        ]
+                        
+                        try:
+                            # Generate suggestions using the AI model
+                            response = generate_response(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
+                            return response
+                        except Exception as e:
+                            logging.error(f"Error in generate_better_prompt: {str(e)}")
+                            return "Xin lỗi, đã có lỗi xảy ra khi tạo gợi ý. Vui lòng thử lại."
 
                     prompt_helper.click(
                         fn=generate_better_prompt,
-                        inputs=[msg],
+                        inputs=[msg, personality],
                         outputs=[msg]
                     )
 
@@ -953,7 +1052,16 @@ def create_user_interface():
 
             # Ensure current_chat_id is a string
             current_chat_id = str(current_chat_id)
+            if not login_info.get("logged_in", False):
+                return [], history
 
+            history = history or []
+
+            if not message or not message.strip():
+                return history  # Return without changing history if the message is empty
+
+            history.append([message, None])  # Add user message as a list of [user_message, None]
+            
             try:
                 response = ""
                 personality_data = PERSONALITIES.get(personality)
