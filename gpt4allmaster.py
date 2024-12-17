@@ -588,6 +588,15 @@ def create_user_interface():
                 # Chat and inputs section
 
                 with gr.Column(scale=3):
+                    # First, create the personality dropdown since it's needed for the chatbot
+                    personality = gr.Dropdown(
+                        choices=personality_choices,
+                        value=personality_choices[0],
+                        label="Chọn tính cách AI",
+                        interactive=True
+                    )
+
+                    # Now we can create the chatbot with the correct avatar
                     chatbot = gr.Chatbot(
                         elem_id="chatbot",
                         height=1000,
@@ -595,7 +604,7 @@ def create_user_interface():
                         elem_classes="custom-chatbot",
                         render_markdown=True,
                         container=True,
-                        avatar_images=[None, get_avatar_path("Trợ lý")],  # Only show bot avatar
+                        avatar_images=[None, get_avatar_path(personality_choices[0])],  # Only show bot avatar
                         show_copy_button=True,
                         show_share_button=False,
                         bubble_full_width=False,
@@ -605,36 +614,11 @@ def create_user_interface():
                     def update_avatar(personality_name):
                         return gr.update(avatar_images=[None, get_avatar_path(personality_name)])
 
-                    personality = gr.Dropdown(
-                        choices=personality_choices,
-                        value=personality_choices[0],
-                        label="Chọn tính cách AI",
-                        interactive=True
-                    )
                     personality.change(
                         fn=update_avatar,
                         inputs=[personality],
                         outputs=[chatbot]
                     )
-
-                    model = gr.Dropdown(
-                        choices=model_choices,
-                        value=model_choices[0],
-                        label="Chọn mô hình AI",
-                        interactive=True
-                    )
-                    use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
-                    new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
-                    
-                    gr.Markdown("### Thư viện công cụ")
-                    premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
-                    
-                    gr.Markdown("## Lịch sử trò chuyện")
-                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
-                    with gr.Row():
-                        load_chat_button = gr.Button("Load Chat")
-                        rename_chat_button = gr.Button("Rename Chat")
-                    rename_chat_textbox = gr.Textbox(placeholder="Enter new chat name", visible=False)
 
                     with gr.Row():
                         with gr.Column(scale=12):
@@ -678,7 +662,7 @@ def create_user_interface():
                         
                         try:
                             # Generate suggestions using the AI model
-                            response = generate_response(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
+                            response = chat_with_model(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
                             return response
                         except Exception as e:
                             logging.error(f"Error in generate_better_prompt: {str(e)}")
@@ -731,7 +715,7 @@ def create_user_interface():
                         
                         try:
                             # Generate new response using the AI model
-                            response = generate_response(messages, model_choice)
+                            response = chat_with_model(messages, model_choice)
                             chatbot_history[message_index][1] = response
                             
                             # Save the updated chat history
@@ -748,113 +732,9 @@ def create_user_interface():
 
                     # Add regenerate functionality to chatbot
                     chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
-                    
-                    # Add event handlers for the new buttons
-                    def generate_better_prompt(message, personality_choice):
-                        if not message.strip():
-                            return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
-                        
-                        # Create a system message asking for prompt improvement
-                        system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
-                        Consider the following aspects:
-                        1. Clarity and specificity
-                        2. Context and background information
-                        3. Desired output format
-                        4. Constraints or requirements
-                        
-                        Provide specific suggestions based on the input text."""
-                        
-                        messages = [
-                            {
-                                'role': 'system',
-                                'content': system_message
-                            },
-                            {
-                                'role': 'user',
-                                'content': f"Please help me improve this prompt: {message}"
-                            }
-                        ]
-                        
-                        try:
-                            # Generate suggestions using the AI model
-                            response = generate_response(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
-                            return response
-                        except Exception as e:
-                            logging.error(f"Error in generate_better_prompt: {str(e)}")
-                            return "Xin lỗi, đã có lỗi xảy ra khi tạo gợi ý. Vui lòng thử lại."
 
-                    prompt_helper.click(
-                        fn=generate_better_prompt,
-                        inputs=[msg, personality],
-                        outputs=[msg]
-                    )
-
-                    def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):
-                        if not chatbot_history or message_index >= len(chatbot_history):
-                            return chatbot_history
-                        
-                        if not login_info["logged_in"]:
-                            return chatbot_history
-                            
-                        user_message = chatbot_history[message_index][0]
-                        
-                        # Get personality data
-                        personality_data = PERSONALITIES.get(personality_choice, {})
-                        personality_prompt = personality_data.get("system", "")
-                        
-                        # Create the conversation history
-                        messages = []
-                        messages.append({
-                            'role': 'system',
-                            'content': personality_prompt
-                        })
-                        
-                        # Add context from previous messages
-                        for i in range(message_index):
-                            if chatbot_history[i][0]:  # User message
-                                messages.append({
-                                    'role': 'user',
-                                    'content': chatbot_history[i][0]
-                                })
-                            if chatbot_history[i][1]:  # Assistant message
-                                messages.append({
-                                    'role': 'assistant',
-                                    'content': chatbot_history[i][1]
-                                })
-                        
-                        # Add the current user message
-                        messages.append({
-                            'role': 'user',
-                            'content': user_message
-                        })
-                        
-                        try:
-                            # Generate new response using the AI model
-                            response = generate_response(messages, model_choice)
-                            chatbot_history[message_index][1] = response
-                            
-                            # Save the updated chat history
-                            username = login_info["username"]
-                            chat_id = current_chat_id.value
-                            if chat_id:
-                                save_chat_history(username, chat_id, chatbot_history)
-                            
-                        except Exception as e:
-                            logging.error(f"Error in regenerate_response: {str(e)}")
-                            chatbot_history[message_index][1] = "Xin lỗi, đã có lỗi xảy ra khi tạo lại câu trả lời. Vui lòng thử lại."
-                        
-                        return chatbot_history
-
-                    # Add regenerate functionality to chatbot
-                    chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
-                # Right column (personality, model, internet, new chat, premade prompts)
+                # Right column (model, internet, new chat, premade prompts)
                 with gr.Column(scale=1):
-                    personality = gr.Dropdown(
-                        choices=personality_choices,
-                        value=personality_choices[0],
-                        label="Chọn tính cách AI",
-                        interactive=True
-                    )
                     model = gr.Dropdown(
                         choices=model_choices,
                         value=model_choices[0],
