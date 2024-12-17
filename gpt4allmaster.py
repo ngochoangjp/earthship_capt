@@ -109,10 +109,10 @@ def get_chat_titles(username):
     """Gets the titles of all chats for a user."""
     user_data = load_user_data(username)
     if user_data:
-        chat_titles = [
-            (user_data.get(f"title_{chat_id}", f"Chat {chat_id}"), chat_id)
-            for chat_id in user_data.get("chat_history", {})
-        ]
+        chat_titles = []
+        for chat_id in user_data.get("chat_history", {}):
+            title = user_data.get(f"title_{chat_id}", f"Chat {chat_id}")
+            chat_titles.append((title, chat_id))
         return chat_titles
     return []
 
@@ -700,6 +700,10 @@ def create_user_interface():
 
                 # Create new chat entry in the dictionary
                 user_data["chat_history"][new_chat_id] = []  # Initialize as an empty list
+                
+                # Add timestamp as default title
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                user_data[f"title_{new_chat_id}"] = timestamp
 
                 # Update current chat ID
                 current_chat_id.value = new_chat_id
@@ -707,13 +711,10 @@ def create_user_interface():
                 # Save user data
                 save_user_data(username, user_data)
 
-                # Update chat history dropdown (using datetime)
-                chat_titles = [
-                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), chat_id)
-                    for chat_id in user_data["chat_history"]
-                ]
+                # Get updated chat titles
+                chat_titles = get_chat_titles(username)
 
-                return [], new_chat_id, gr.update(choices=chat_titles, value=new_chat_id)
+                return [], new_chat_id, gr.update(choices=chat_titles, value=(timestamp, new_chat_id))
             else:
                 return [], None, gr.update(choices=[])
 
@@ -942,7 +943,7 @@ def create_user_interface():
                     None,  # current_chat_id
                     None,  # personality
                     "Vui lòng nhập tên đăng nhập và mật khẩu.",  # login_message
-                    [],  # chat_history_dropdown
+                    gr.update(choices=[]),  # chat_history_dropdown
                     gr.update(visible=False),  # admin_panel
                     "0",  # selected_user
                     [],  # admin_chatbot
@@ -976,7 +977,7 @@ def create_user_interface():
                     None,  # current_chat_id
                     None,  # personality
                     "Tên đăng nhập hoặc mật khẩu không đúng.",  # login_message
-                    [],  # chat_history_dropdown
+                    gr.update(choices=[]),  # chat_history_dropdown
                     gr.update(visible=False),  # admin_panel
                     "0",  # selected_user
                     [],  # admin_chatbot
@@ -1003,6 +1004,15 @@ def create_user_interface():
             # Get profile data
             profile_data = user_data.get("profile", {})
             
+            # Get chat history titles
+            chat_titles = get_chat_titles(username)
+            
+            # Set default titles for chats that don't have one
+            for chat_id in user_data.get("chat_history", {}):
+                if f"title_{chat_id}" not in user_data:
+                    user_data[f"title_{chat_id}"] = f"Chat {chat_id}"
+            save_user_data(username, user_data)
+            
             return [
                 gr.update(visible=False),  # login_group
                 gr.update(visible=True),   # chat_group
@@ -1011,7 +1021,7 @@ def create_user_interface():
                 None,  # current_chat_id
                 None,  # personality
                 gr.update(visible=False),  # login_message
-                [],  # chat_history_dropdown
+                gr.update(choices=chat_titles, value=None),  # chat_history_dropdown
                 gr.update(visible=username.lower() == "admin"),  # admin_panel
                 "0",  # selected_user
                 [],  # admin_chatbot
