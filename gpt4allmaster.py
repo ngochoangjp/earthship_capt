@@ -64,16 +64,12 @@ load_global_prompts()  # Load prompts at startup
 # ************************************************************************
 
 MODEL_DISPLAY_NAMES = {
-    "Vietai": "Tuanpham/t-visstar-7b:latest",
-    "codegpt": "marco-o1",
+    "Vietai": "Tuanpham/t-visstar-7b:latest"
 }
 
 AVAILABLE_MODELS = {
     model_tech: model_tech for model_tech in {
-        "Tuanpham/t-visstar-7b:latest",
-        "marco-o1",
-        "llama2",
-        "codellama"
+        "Tuanpham/t-visstar-7b:latest"
     }
 }
 
