@@ -594,12 +594,8 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
             """
 
         # Add user profile information if allowed
-        if share_info_checkbox.value:
+        if share_info_checkbox:
             user_data = load_user_data(login_info["username"])
-            if user_data and "profile" in user_data:
-                profile = user_data["profile"]
-                user_info = format_user_info(profile)
-                personality_prompt += f"\n\nUser Information:\n{user_info}"
 
         # Skip personality prompt for certain personalities
         skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
@@ -663,11 +659,14 @@ def update_admin_view(selected_user):
     """Updates the admin view with the selected user's chat history."""
     if selected_user:
         user_data = load_user_data(selected_user)
-        admin_chat_history = []
-        for chat_id, chat in user_data.get("chat_history", {}).items():
-            for msg in chat:
-                admin_chat_history.append(msg)
-        return admin_chat_history
+        if user_data:  # Check if user_data is not None
+            admin_chat_history = []
+            for chat_id, chat in user_data.get("chat_history", {}).items():
+                for msg in chat:
+                    admin_chat_history.append(msg)
+            return admin_chat_history
+        else:
+            return []  # Or some other appropriate message/handling
     return []
 
 def show_all_chats():
