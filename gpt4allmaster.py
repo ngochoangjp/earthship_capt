@@ -13,58 +13,10 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Initialize global variables
-USER_DATA_FOLDER = "userdata"
-PERSONALITIES = {}
-EXAMPLE_RESPONSES = {}
-
-
-# Create user data folder if it doesn't exist
-if not os.path.exists(USER_DATA_FOLDER):
-    os.makedirs(USER_DATA_FOLDER)
-
-# ************************************************************************
-# *                         Import prompts                        *
-# ************************************************************************
-
-
-def load_prompts(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        prompts_code = file.read()
-    local_vars = {}
-    exec(prompts_code, {}, local_vars)  # Execute the code in a local namespace
-    return local_vars.get('EXAMPLE_RESPONSES'), local_vars.get('PERSONALITIES'), local_vars.get('PREMADE_PROMPTS')
-
-# Load the prompts from prompts.txt
-prompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'
-
-# Initialize global variables
-EXAMPLE_RESPONSES = {}
-PERSONALITIES = {}
-PREMADE_PROMPTS = {}
-
-def load_global_prompts():
-    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS
-    try:
-        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)
-    except Exception as e:
-        logging.error(f"Error loading prompts: {e}")
-        PERSONALITIES["Trợ lý"] = {
-            "system": "Bạn là một trợ lý AI hữu ích.",
-            "links": ["https://vi.wikipedia.org", "https://www.google.com.vn"]
-        }
-
-# Load prompts at startup
-load_global_prompts()
-
 # ************************************************************************
 # *                         Logging Configuration                        *
 # ************************************************************************
 
-# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # ************************************************************************
@@ -72,14 +24,50 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # ************************************************************************
 
 DEFAULT_PASSWORD = "admin"
+USER_DATA_FOLDER = "userdata"
+os.makedirs(USER_DATA_FOLDER, exist_ok=True)
 
-# Available Ollama Models
+# ************************************************************************
+# *                         Prompt Management                            *
+# ************************************************************************
+
+EXAMPLE_RESPONSES = {}
+PERSONALITIES = {}
+PREMADE_PROMPTS = {}
+prompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file
+
+def load_prompts(file_path):
+    """Loads prompts, example responses, and personalities from a Python file."""
+    with open(file_path, 'r', encoding='utf-8') as file:
+        prompts_code = file.read()
+    local_vars = {}
+    exec(prompts_code, {}, local_vars)
+    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})
+
+def load_global_prompts():
+    """Loads prompts into global variables, handling potential errors."""
+    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS
+    try:
+        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)
+    except Exception as e:
+        logging.error(f"Error loading prompts: {e}")
+        # Provide a default personality if loading fails
+        PERSONALITIES["Trợ lý"] = {
+            "system": "Bạn là một trợ lý AI hữu ích.",
+            "links": ["https://vi.wikipedia.org", "https://www.google.com.vn"]
+        }
+
+load_global_prompts()  # Load prompts at startup
+
+# ************************************************************************
+# *                         Model Definitions                            *
+# ************************************************************************
+
 MODEL_DISPLAY_NAMES = {
     "Vietai": "Tuanpham/t-visstar-7b:latest",
     "codegpt": "marco-o1",
 }
 
-# Technical model names for Ollama
 AVAILABLE_MODELS = {
     model_tech: model_tech for model_tech in {
         "Tuanpham/t-visstar-7b:latest",
@@ -89,99 +77,402 @@ AVAILABLE_MODELS = {
     }
 }
 
-# Folder to store user data
-USER_DATA_FOLDER = "userdata"
-os.makedirs(USER_DATA_FOLDER, exist_ok=True)
-
 # ************************************************************************
-# *                  Helper Functions (New)                              *
+# *                      Helper Functions                                *
 # ************************************************************************
 
 def get_all_usernames():
     """Gets a list of all registered usernames."""
-    usernames = []
-    for filename in os.listdir(USER_DATA_FOLDER):
-        if os.path.isdir(os.path.join(USER_DATA_FOLDER, filename)):
-            usernames.append(filename)
-    return usernames
+    return [name for name in os.listdir(USER_DATA_FOLDER) if os.path.isdir(os.path.join(USER_DATA_FOLDER, name))]
 
 def get_chat_titles(username):
     """Gets the titles of all chats for a user."""
     user_data = load_user_data(username)
-    if user_data:
-        chat_titles = []
-        for chat_id in user_data.get("chat_history", {}):
-            title = user_data.get(f"title_{chat_id}", f"Chat {chat_id}")
-            chat_titles.append((title, chat_id))
-        return chat_titles
-    return []
+    return [(user_data.get(f"title_{chat_id}", f"Chat {chat_id}"), chat_id) for chat_id in user_data.get("chat_history", {})] if user_data else []
 
 def format_user_info(profile):
     """Format user profile information into a readable string."""
-    if not profile:
-        return ""
-    
-    formatted_info = []
-    for key, value in profile.items():
-        if value and key != "password":  # Skip empty values and password
-            formatted_key = key.replace("_", " ").title()
-            formatted_info.append(f"{formatted_key}: {value}")
-    
-    return "\n".join(formatted_info)
-
-# ************************************************************************
-# *                      Token Estimation Function                          *
-# ************************************************************************
+    return "\n".join(f"{key.replace('_', ' ').title()}: {value}" for key, value in profile.items() if value and key != "password") if profile else ""
 
 def estimate_tokens(text):
     """Estimates the number of tokens in a text string."""
-    encoding = tiktoken.encoding_for_model("Tuanpham/t-visstar-7b:latest")
+    encoding = tiktoken.encoding_for_model("Tuanpham/t-visstar-7b:latest")  # Assuming this is your primary model
     return len(encoding.encode(text))
 
-# ************************************************************************
-# *            Function to Update Existing User Data                    *
-# ************************************************************************
-
-def update_existing_user_data():
-    for filename in os.listdir(USER_DATA_FOLDER):
-        if filename.endswith(".json"):
-            filepath = os.path.join(USER_DATA_FOLDER, filename)
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    user_data = json.load(f)
-
-                # Convert chat_history to dictionary if it's a list
-                if "chat_history" in user_data and isinstance(user_data["chat_history"], list):
-                    new_chat_history = {}
-                    for i, msg in enumerate(user_data["chat_history"]):
-                        if isinstance(msg, list) and len(msg) == 2:
-                            new_chat_history[str(i)] = [msg[0], msg[1]]
-                    user_data["chat_history"] = new_chat_history
-
-                # Add next_chat_id if it doesn't exist
-                if "next_chat_id" not in user_data:
-                    # Find the highest existing chat ID and add 1
-                    max_chat_id = -1
-                    if "chat_history" in user_data and isinstance(user_data["chat_history"], dict):
-                      for chat_id in user_data["chat_history"]:
-                        if chat_id.isdigit() and int(chat_id) > max_chat_id:
-                          max_chat_id = int(chat_id)
-                    
-                    user_data["next_chat_id"] = max_chat_id + 1
-
-                with open(filepath, "w", encoding="utf-8") as f:
-                    json.dump(user_data, f, ensure_ascii=False, indent=2)
-                print(f"Updated user data for {filename}")
-
-            except Exception as e:
-                print(f"Error updating {filename}: {e}")
-
-# Call update_existing_user_data() at the beginning of your script
-update_existing_user_data()
+def get_avatar_path(personality_name):
+    """Get the avatar path for a given personality"""
+    return os.path.join("icons", f"{personality_name.lower().replace(' ', '_')}.png")
 
 # ************************************************************************
-# *               Web Search and Scrape Function                        *
+# *                    Data Management Functions                         *
 # ************************************************************************
+
+def save_user_data(username, data):
+    """Saves user data to a JSON file."""
+    user_folder = os.path.join(USER_DATA_FOLDER, username)
+    os.makedirs(user_folder, exist_ok=True)
+    file_path = os.path.join(user_folder, "user_data.json")
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"Error saving user data for {username}: {e}")
+
+def load_user_data(username):
+    """Loads user data from a JSON file."""
+    user_folder = os.path.join(USER_DATA_FOLDER, username)
+    file_path = os.path.join(user_folder, "user_data.json")
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return None
+
+def save_chat_history(username, chat_id, chat_history):
+    """Saves a chat session to a separate file."""
+    user_folder = os.path.join(USER_DATA_FOLDER, username)
+    chat_file_path = os.path.join(user_folder, f"chat_{chat_id}.json")
+    try:
+        with open(chat_file_path, 'w', encoding='utf-8') as f:
+            json.dump(chat_history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"Error saving chat history for {username}, chat ID {chat_id}: {e}")
+
+def load_chat_history(username, chat_id):
+    """Loads a chat session from its file."""
+    user_folder = os.path.join(USER_DATA_FOLDER, username)
+    chat_file_path = os.path.join(user_folder, f"chat_{chat_id}.json")
+    if os.path.exists(chat_file_path):
+        with open(chat_file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return None
+
+# ************************************************************************
+# *                   User and Session Management                       *
+# ************************************************************************
+
+def create_new_user(username, password):
+    """Creates a new user with default settings."""
+    if not username or not password:
+        return error_response("Vui lòng nhập tên đăng nhập và mật khẩu.")
+    if load_user_data(username):
+        return error_response("Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.")
+
+    new_user_data = {
+        "password": password,
+        "chat_history": {},
+        "next_chat_id": 0,
+        "user_avatar": None,
+        "bot_avatar": None,
+        "first_login": True,
+        "profile": {
+            "real_name": "", "age": "", "gender": "", "height": "", "weight": "",
+            "job": "", "muscle_percentage": "", "passion": "", "vegan": False, "personality": ""
+        }
+    }
+    save_user_data(username, new_user_data)
+    return success_response(username, password)
+
+def login(username, password):
+    """Handles user login, sets up session, and loads user data."""
+    if not username or not password:
+        return error_response("Vui lòng nhập tên đăng nhập và mật khẩu.")
+
+    user_data = load_user_data(username)
+    if not user_data or user_data.get("password") != password:
+        return error_response("Tên đăng nhập hoặc mật khẩu không đúng.")
+
+    # Successful login
+    return success_response(username, password)
+    
+def error_response(message):
+    """Generates a response for login or user creation errors."""
+    return [
+        gr.update(visible=True),  # login_group
+        gr.update(visible=False),  # chat_group
+        {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login_info
+        [],  # chatbot
+        None,  # current_chat_id
+        None,  # personality
+        message,  # login_message
+        gr.update(choices=[]),  # chat_history_dropdown
+        gr.update(visible=False),  # admin_panel
+        "0",  # selected_user
+        [],  # admin_chatbot
+        gr.update(choices=list(PERSONALITIES.keys()), value="Trợ lý"),  # personality choices
+        gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # model choices
+        # Profile fields
+        gr.update(value="", visible=False),  # real_name
+        gr.update(value=None, visible=False),  # age
+        gr.update(value="", visible=False),  # gender
+        gr.update(value=None, visible=False),  # height
+        gr.update(value=None, visible=False),  # weight
+        gr.update(value="", visible=False),  # job
+        gr.update(value="", visible=False),  # muscle_percentage
+        gr.update(value="", visible=False),  # passion
+        gr.update(value=False, visible=False),  # vegan_checkbox
+        gr.update(value="", visible=False),  # personality_text
+        gr.update(visible=False),  # save_profile
+        gr.update(visible=False),  # hide_profile_button
+        gr.update(visible=True),   # show_profile_button
+        gr.update(visible=False),  # password_input
+        gr.update(visible=False)   # password_error
+    ]
+
+def success_response(username, password):
+    """Generates a response for successful login or user creation."""
+    user_data = load_user_data(username)
+    profile_data = user_data.get("profile", {})
+    chat_titles = get_chat_titles(username)
+    
+    # Set default titles for chats that don't have one
+    for chat_id in user_data.get("chat_history", {}):
+        if f"title_{chat_id}" not in user_data:
+            user_data[f"title_{chat_id}"] = f"Chat {chat_id}"
+    save_user_data(username, user_data)
+    
+    return [
+        gr.update(visible=False),  # login_group
+        gr.update(visible=True),   # chat_group
+        {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},  # login_info
+        [],  # chatbot
+        None,  # current_chat_id
+        "Trợ lý",  # personality - Set default personality
+        gr.update(visible=False),  # login_message
+        gr.update(choices=chat_titles, value=None),  # chat_history_dropdown
+        gr.update(visible=username.lower() == "admin"),  # admin_panel
+        "0",  # selected_user
+        [],  # admin_chatbot
+        gr.update(choices=list(PERSONALITIES.keys()), value="Trợ lý"),  # personality choices
+        gr.update(choices=list(MODEL_DISPLAY_NAMES.keys())),  # model choices
+        # Profile fields with values from user_data
+        gr.update(value=profile_data.get("real_name", ""), visible=False),
+        gr.update(value=profile_data.get("age", None), visible=False),
+        gr.update(value=profile_data.get("gender", ""), visible=False),
+        gr.update(value=profile_data.get("height", None), visible=False),
+        gr.update(value=profile_data.get("weight", None), visible=False),
+        gr.update(value=profile_data.get("job", ""), visible=False),
+        gr.update(value=profile_data.get("muscle_percentage", ""), visible=False),
+        gr.update(value=profile_data.get("passion", ""), visible=False),
+        gr.update(value=profile_data.get("vegan", False), visible=False),
+        gr.update(value=profile_data.get("personality", ""), visible=False),
+        gr.update(visible=False),  # save_profile
+        gr.update(visible=False),  # hide_profile_button
+        gr.update(visible=True),   # show_profile_button
+        gr.update(visible=False),  # password_input
+        gr.update(visible=False)   # password_error
+    ]
+
+# ************************************************************************
+# *                    Chat and Prompt Management                       *
+# ************************************************************************
+
+def new_chat(login_info, personality_choice, model_choice):
+    """Starts a new chat session."""
+    if not login_info["logged_in"]:
+        return [], None, gr.update(choices=[])
+
+    username = login_info["username"]
+    user_data = load_user_data(username) or {"next_chat_id": 1, "chat_history": {"1": []}, "settings": {}}
+    new_chat_id = str(user_data["next_chat_id"])
+    user_data["next_chat_id"] += 1
+    user_data["chat_history"][new_chat_id] = []
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user_data[f"title_{new_chat_id}"] = timestamp
+    save_user_data(username, user_data)
+
+    return [], new_chat_id, gr.update(choices=get_chat_titles(username), value=(timestamp, new_chat_id))
+
+def load_selected_chat(login_info, chat_id):
+    """Loads a selected chat session."""
+    if not login_info["logged_in"] or not chat_id:
+        return [], None
+
+    username = login_info["username"]
+    chat_history = load_chat_history(username, chat_id)
+    if chat_history is None:
+        logging.warning(f"Chat history not found for chat ID {chat_id}")
+        return [], chat_id
+
+    return chat_history, chat_id
+
+def add_premade_prompt(prompt_name, current_msg, history):
+    """Adds a premade prompt to the chat history."""
+    new_history = list(history or [])
+    new_history.append([prompt_name, None])
+    return "", new_history
+
+def rename_chat(new_name, chat_id, login_info):
+    """Renames a chat session."""
+    if not login_info["logged_in"] or not chat_id or not new_name:
+        return gr.update(choices=get_chat_titles(login_info["username"])), gr.update(visible=False)
+
+    username = login_info["username"]
+    user_data = load_user_data(username)
+    if user_data and chat_id in user_data.get("chat_history", {}):
+        user_data[f"title_{chat_id}"] = new_name
+        save_user_data(username, user_data)
+        chat_titles = get_chat_titles(username)
+        selected_index = next((i for i, (title, id) in enumerate(chat_titles) if id == chat_id), None)
+        return gr.update(choices=chat_titles, value=chat_titles[selected_index] if selected_index is not None else None), gr.update(visible=False)
+
+    return gr.update(choices=get_chat_titles(username)), gr.update(visible=False)
+
+# ************************************************************************
+# *                       Profile Management                            *
+# ************************************************************************
+
+def save_profile_info(real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info):
+    """Saves the user's profile information."""
+    if not login_info.get("logged_in", False):
+        return
+
+    try:
+        height = float(height) if height else None
+        weight = float(weight) if weight else None
+        age = int(age) if age else None
+    except (ValueError, TypeError):
+        height = None
+        weight = None
+        age = None
+
+    username = login_info["username"]
+    user_data = load_user_data(username)
+    if user_data:
+        user_data["profile"] = {
+            "real_name": real_name,
+            "age": age,
+            "gender": gender,
+            "height": height,
+            "weight": weight,
+            "job": job,
+            "muscle_percentage": muscle_percentage,
+            "passion": passion,
+            "vegan": vegan_checkbox,
+            "personality": personality_text
+        }
+        save_user_data(username, user_data)
+
+        return [
+            gr.update(visible=True),  # save_profile
+            gr.update(value=real_name),  # real_name
+            gr.update(value=age),  # age
+            gr.update(value=gender),  # gender
+            gr.update(value=height),  # height
+            gr.update(value=weight),  # weight
+            gr.update(value=job),  # job
+            gr.update(value=muscle_percentage),  # muscle_percentage
+            gr.update(value=passion),  # passion
+            gr.update(value=vegan_checkbox),  # vegan_checkbox
+            gr.update(value=personality_text),  # personality_text
+            gr.update(visible=False)  # show_profile_button
+        ]
+
+def load_profile_info(login_info):
+    """Loads and displays the user's profile information."""
+    if not login_info["logged_in"]:
+        return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()]
+
+    username = login_info["username"]
+    user_data = load_user_data(username)
+    if user_data and "profile" in user_data:
+        profile = user_data["profile"]
+        # Convert numeric values to strings
+        height = str(profile.get('height', '')) if profile.get('height') is not None else ''
+        weight = str(profile.get('weight', '')) if profile.get('weight') is not None else ''
+        age = str(profile.get('age', '')) if profile.get('age') is not None else ''
+
+        profile_info = f"""
+        Thông tin người dùng:
+        - Tên: {profile.get('real_name', '')}
+        - Tuổi: {age}
+        - Giới tính: {profile.get('gender', '')}
+        - Chiều cao: {height} cm
+        - Cân nặng: {weight} kg
+        - Nghề nghiệp: {profile.get('job', '')}
+        - Phần trăm cơ: {profile.get('muscle_percentage', '')}
+        - Đam mê: {profile.get('passion', '')}
+        - Ăn chay: {'Có' if profile.get('vegan', False) else 'Không'}
+        - Tính cách: {profile.get('personality', '')}
+        """.encode('utf-8').decode('utf-8')
+
+        return [
+            gr.update(visible=False),  # Hide save_profile button
+            gr.update(value=""),  # real_name
+            gr.update(value=""),  # age
+            gr.update(value=""),  # gender
+            gr.update(value=""),  # height
+            gr.update(value=""),  # weight
+            gr.update(value=""),  # job
+            gr.update(value=""),  # muscle_percentage
+            gr.update(value=""),  # passion
+            gr.update(value=False),  # vegan_checkbox
+            gr.update(value=""),  # personality_text
+            gr.update(visible=True),  # Show show_profile_button
+            gr.update(visible=True, value="It's so nice to know more about you. Do you want to hide the information? (You can still update it later)"),  # Update password_error with confirmation message
+            gr.update(visible=True)  # confirm_button
+
+        ] + [gr.update(choices=list(PERSONALITIES.keys())), gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))]
+    return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()]
+
+# ************************************************************************
+# *                         AI Interaction                              *
+# ************************************************************************
+
+def generate_better_prompt(message, personality_choice):
+    """Generates suggestions for improving a prompt using the AI model."""
+    if not message.strip():
+        return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
+
+    system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
+    Consider the following aspects:
+    1. Clarity and specificity
+    2. Context and background information
+    3. Desired output format
+    4. Constraints or requirements
+
+    Provide specific suggestions based on the input text."""
+
+    messages = [
+        {'role': 'system', 'content': system_message},
+        {'role': 'user', 'content': f"Please help me improve this prompt: {message}"}
+    ]
+
+    try:
+        response = chat_with_model(messages, list(MODEL_DISPLAY_NAMES.keys())[0])  # Use default model
+        return response
+    except Exception as e:
+        logging.error(f"Error in generate_better_prompt: {str(e)}")
+        return "Xin lỗi, đã có lỗi xảy ra khi tạo gợi ý. Vui lòng thử lại."
+
+def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):
+    """Regenerates a response for a specific message in the chat history."""
+    if not chatbot_history or message_index >= len(chatbot_history) or not login_info["logged_in"]:
+        return chatbot_history
+
+    user_message = chatbot_history[message_index][0]
+    personality_data = PERSONALITIES.get(personality_choice, {})
+    personality_prompt = personality_data.get("system", "")
+
+    messages = [{'role': 'system', 'content': personality_prompt}]
+    for i in range(message_index):
+        if chatbot_history[i][0]:
+            messages.append({'role': 'user', 'content': chatbot_history[i][0]})
+        if chatbot_history[i][1]:
+            messages.append({'role': 'assistant', 'content': chatbot_history[i][1]})
+    messages.append({'role': 'user', 'content': user_message})
+
+    try:
+        response = chat_with_model(messages, model_choice)
+        chatbot_history[message_index][1] = response
+        username = login_info["username"]
+        chat_id = current_chat_id.value
+        if chat_id:
+            save_chat_history(username, chat_id, chatbot_history)
+    except Exception as e:
+        logging.error(f"Error in regenerate_response: {str(e)}")
+        chatbot_history[message_index][1] = "Xin lỗi, đã có lỗi xảy ra khi tạo lại câu trả lời. Vui lòng thử lại."
+
+    return chatbot_history
 
 def web_search_and_scrape(query, personality, links):
     """
@@ -247,200 +538,169 @@ def web_search_and_scrape(query, personality, links):
     else:
         return "Không tìm thấy thông tin liên quan.", []
 
-# ************************************************************************
-# *                    Save User Data Function                         *
-# ************************************************************************
-
-def save_user_data(username, data):
-    user_folder = os.path.join(USER_DATA_FOLDER, username)
-    os.makedirs(user_folder, exist_ok=True)  # Create user folder if it doesn't exist
-    
-    file_path = os.path.join(user_folder, "user_data.json")
+def chat_with_model(messages, model_choice):
+    """Interacts with the chosen AI model to generate a response."""
     try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        response_stream = ollama.chat(
+            model=MODEL_DISPLAY_NAMES.get(model_choice, model_choice),
+            messages=messages,
+            stream=True
+        )
+        response = ""
+        for chunk in response_stream:
+            if 'message' in chunk and 'content' in chunk['message']:
+                response += chunk['message']['content']
+        return response
     except Exception as e:
-        logging.error(f"Error in save_user_data: {e}")
+        logging.error(f"Error in chat_with_model: {str(e)}")
+        return "Xin lỗi, đã có lỗi xảy ra khi giao tiếp với mô hình AI."
 
-# ************************************************************************
-# *                    Load User Data Function                         *
-# ************************************************************************
+def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox):
+    """Streams the response from Ollama word by word."""
+    global stop_generation
+    stop_generation = False
+    current_chat_id = str(current_chat_id)
 
-def load_user_data(username):
-    user_folder = os.path.join(USER_DATA_FOLDER, username)
-    file_path = os.path.join(user_folder, "user_data.json")
+    if not login_info.get("logged_in", False):
+        yield []
+        return
+
+    history = history or []
+    history.append([message, None])
+
+    if not message or not message.strip():
+        yield history
+        return
     
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        return data
-    return None
-
-# ************************************************************************
-# *                  Save Chat History Function                        *
-# ************************************************************************
-
-def save_chat_history(username, chat_id, chat_history):
-    """Saves a chat session to a separate file."""
-    user_folder = os.path.join(USER_DATA_FOLDER, username)
-    chat_file_path = os.path.join(user_folder, f"chat_{chat_id}.json")
     try:
-        with open(chat_file_path, 'w', encoding='utf-8') as f:
-            json.dump(chat_history, f, ensure_ascii=False, indent=2)
+        response = ""
+        personality_data = PERSONALITIES.get(personality)
+        personality_prompt = personality_data.get("system", "") if personality_data else ""
+        personality_links = personality_data.get("links", []) if personality_data else []
+
+        # Add example response for the selected personality
+        if personality in EXAMPLE_RESPONSES:
+            example = random.choice(EXAMPLE_RESPONSES[personality])
+            personality_prompt = f"""
+            {personality_prompt}
+
+            QUAN TRỌNG: Bạn phải tuân theo các quy tắc sau trong các phản hồi của mình: 
+            1. Luôn duy trì tính cách và phong cách nói chuyện như trong ví dụ dưới đây 
+            2. Bao gồm các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn như trong ví dụ 
+            3. Sử dụng các mẫu ngôn ngữ và cách diễn đạt tương tự 
+            4. Giữ nguyên mức độ trang trọng và giọng điệu 
+            5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại Ví dụ về phong cách phản hồi cần tuân theo: {example} 
+            Nhớ rằng: Mỗi phản hồi của bạn phải tuân theo phong cách này một cách chính xác, bao gồm cả các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn.
+            """
+
+        # Add user profile information if allowed
+        if share_info_checkbox.value:
+            user_data = load_user_data(login_info["username"])
+            if user_data and "profile" in user_data:
+                profile = user_data["profile"]
+                user_info = format_user_info(profile)
+                personality_prompt += f"\n\nUser Information:\n{user_info}"
+
+        # Skip personality prompt for certain personalities
+        skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
+        system_message = personality_data.get("system", "") if skip_personality_prompt else f"{personality_prompt}\n\n{personality_data.get('system', '')}"
+
+        # Create the conversation history
+        messages = [{'role': 'system', 'content': system_message}]
+        for prompt_name, prompt_data in PREMADE_PROMPTS.items():
+            if prompt_data["user"] in message:
+                messages.append({'role': 'system', 'content': prompt_data["system"]})
+                break
+        for user_msg, assistant_msg in history[:-1]:  # Exclude the last message (current one)
+            if user_msg:
+                messages.append({'role': 'user', 'content': user_msg})
+            if assistant_msg:
+                messages.append({'role': 'assistant', 'content': assistant_msg})
+        messages.append({'role': 'user', 'content': message})
+
+        # Perform web search if enabled
+        if use_internet:
+            search_results, search_links = web_search_and_scrape(message, personality, personality_links)
+            if search_results:
+                messages.append({'role': 'system', 'content': search_results})
+
+        # Stream response from Ollama
+        response_stream = ollama.chat(
+            model=MODEL_DISPLAY_NAMES.get(ollama_model, ollama_model),
+            messages=messages,
+            stream=True
+        )
+
+        current_response = ""
+        for chunk in response_stream:
+            if stop_generation:
+                break
+            if 'message' in chunk and 'content' in chunk['message']:
+                response_chunk = chunk['message']['content']
+                current_response += response_chunk
+                new_history = history[:-1] + [[message, current_response]]
+                yield new_history
+
+        # Save final chat history
+        if login_info.get("logged_in"):
+            final_history = history[:-1] + [[message, current_response]]
+            save_chat_history(login_info["username"], current_chat_id, final_history)
+
     except Exception as e:
-        logging.error(f"Error in save_chat_history: {e}")
+        logging.error(f"Error in stream_chat: {str(e)}")
+        yield history[:-1] + [[message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."]]
+
+def stop_gen():
+    """Stops the generation of the current response."""
+    global stop_generation
+    stop_generation = True
 
 # ************************************************************************
-# *                  Load Chat History Function                        *
+# *                     Admin Panel Functions                           *
 # ************************************************************************
 
-def load_chat_history(username, chat_id):
-    """Loads a chat session from its file."""
-    user_folder = os.path.join(USER_DATA_FOLDER, username)
-    chat_file_path = os.path.join(user_folder, f"chat_{chat_id}.json")
-    if os.path.exists(chat_file_path):
-        with open(chat_file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return None
+def update_admin_view(selected_user):
+    """Updates the admin view with the selected user's chat history."""
+    if selected_user:
+        user_data = load_user_data(selected_user)
+        admin_chat_history = []
+        for chat_id, chat in user_data.get("chat_history", {}).items():
+            for msg in chat:
+                admin_chat_history.append(msg)
+        return admin_chat_history
+    return []
+
+def show_all_chats():
+    """Displays all chat histories for all users."""
+    all_chats_history = []
+    for user_file in os.listdir(USER_DATA_FOLDER):
+        if os.path.isdir(os.path.join(USER_DATA_FOLDER, user_file)):
+            username = user_file
+            user_data = load_user_data(username)
+            all_chats_history.append([None, f"=== Chat History for {username} ==="])
+            for chat_id, chat in user_data.get("chat_history", {}).items():
+                for msg in chat:
+                    if msg[0]:
+                        all_chats_history.append([msg[0], None])
+                    elif msg[1]:
+                        all_chats_history.append([None, msg[1]])
+            all_chats_history.append([None, "=== End of Chat History ==="])
+    return all_chats_history
+
+def refresh_users():
+    """Refreshes the list of users in the admin panel."""
+    user_files = os.listdir(USER_DATA_FOLDER)
+    user_names = [f for f in user_files if os.path.isdir(os.path.join(USER_DATA_FOLDER, f))]
+    return gr.update(choices=user_names)
 
 # ************************************************************************
-# *                    Create New User Function                        *
-# ************************************************************************
-
-def create_new_user(username, password):
-    if not username or not password:
-        return (
-            gr.update(visible=True),
-            gr.update(visible=False),
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],
-            None,
-            None,
-            gr.update(visible=True, value="Vui lòng nhập tên đăng nhập và mật khẩu."),
-            [],
-            gr.update(visible=False),
-            None,
-            [],
-            gr.update(),
-            gr.update()
-        )
-    
-    user_data = load_user_data(username)
-    if user_data:
-        return (
-            gr.update(visible=True),
-            gr.update(visible=False),
-            {"username": "", "password": "", "logged_in": False, "is_admin": False},
-            [],
-            None,
-            None,
-            gr.update(visible=True, value="Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác."),
-            [],
-            gr.update(visible=False),
-            None,
-            [],
-            gr.update(),
-            gr.update()
-        )
-    
-    new_user_data = {
-        "password": password,
-        "chat_history": {},  # Changed to dictionary
-        "next_chat_id": 0,
-        "user_avatar": None,
-        "bot_avatar": None,
-        "first_login": True,  # Add flag for first login
-        "profile": {
-            "real_name": "",
-            "age": "",
-            "gender": "",
-            "height": "",
-            "weight": "",
-            "job": "",
-            "muscle_percentage": "",
-            "passion": "",
-            "vegan": False,
-            "personality": ""
-        }
-    }
-    save_user_data(username, new_user_data)
-    
-    return (
-        gr.update(visible=False),
-        gr.update(visible=True),
-        {"username": username, "password": password, "logged_in": True, "is_admin": False},
-        [],
-        None,
-        None,
-        gr.update(visible=False),
-        [],
-        gr.update(visible=False),
-        "0",
-        [],
-        gr.update(choices=list(PERSONALITIES.keys())),
-        gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))
-    )
-
-# ************************************************************************
-# *                          Custom CSS                                 *
-# ************************************************************************
-
-custom_css = """
-.message {
-    padding: 10px;
-    margin: 5px;
-    border-radius: 10px;
-}
-.user-message {
-    background-color: #e3f2fd;
-    text-align: right;
-}
-.bot-message {
-    background-color: #f5f5f5;
-    text-align: left;
-}
-.accordion {
-    background-color: #eee;
-    color: #444;
-    cursor: pointer;
-    padding: 18px;
-    width: 100%;
-    text-align: left;
-    border: none;
-    outline: none;
-    transition: 0.4s;
-    margin-bottom: 5px;
-}
-
-.active, .accordion:hover {
-    background-color: #ccc;
-}
-
-.panel {
-    padding: 0 18px;
-    background-color: white;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.2s ease-out;
-}
-"""
-
-# ************************************************************************
-# *                     Create User Interface Function                  *
+# *                     Gradio Interface                               *
 # ************************************************************************
 
 def create_user_interface():
-    # Ensure prompts are loaded
+    """Creates the Gradio user interface."""
     if not PERSONALITIES:
         load_global_prompts()
-    
-    personality_choices = list(PERSONALITIES.keys())
-    model_choices = list(MODEL_DISPLAY_NAMES.keys())
-
-    def get_avatar_path(personality_name):
-        """Get the avatar path for a given personality"""
-        return os.path.join("icons", f"{personality_name.lower().replace(' ', '_')}.png")
 
     with gr.Blocks(css="""
         .message {
@@ -486,24 +746,25 @@ def create_user_interface():
         """) as user_interface:
         gr.Markdown("# Earthship AI")
 
-        # Initialize user data directory if it doesn't exist
+        # Initialize user data directory
         os.makedirs(USER_DATA_FOLDER, exist_ok=True)
 
         # Enable Gradio's built-in queue
-        user_interface.queue(
-            default_concurrency_limit=5,
-            max_size=20,
-            api_open=True
-        )
+        user_interface.queue(default_concurrency_limit=5, max_size=20, api_open=True)
 
+        # States
         login_info = gr.State(value={"username": "", "password": "", "logged_in": False, "is_admin": False})
         current_chat_id = gr.State()
-        selected_user = gr.State(value="0")  # Add this line
+        selected_user = gr.State(value="0")
+        
+        # Global Checkbox for sharing info
+        share_info_checkbox = gr.Checkbox(label="Cho phép AI truy cập thông tin cá nhân", value=True, interactive=True)
 
-        # Add avatar components
+        # Components
         user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
         bot_avatar = gr.Image(label="Bot Avatar", type="filepath", visible=False)
 
+        # --- Login/Registration ---
         with gr.Group() as login_group:
             with gr.Column():
                 gr.Markdown("## Đăng nhập")
@@ -514,22 +775,22 @@ def create_user_interface():
                     create_user_button = gr.Button("Tạo người dùng mới")
                 login_message = gr.Markdown(visible=False)
 
-        # Admin panel (initially hidden)
+        # --- Admin Panel ---
         with gr.Group(visible=False) as admin_panel:
             gr.Markdown("## Captain View")
             with gr.Row():
-                user_selector = gr.Dropdown(choices=[], label="Select User", interactive=True)
+                user_selector = gr.Dropdown(choices=get_all_usernames(), label="Select User", interactive=True)
                 refresh_button = gr.Button("Refresh User List")
                 show_all_chats_button = gr.Button("Show All Chat Histories")
             admin_chatbot = gr.Chatbot(elem_id="admin_chatbot", height=500)
-        
+
+        # --- Main Chat Interface ---
         with gr.Group(visible=False) as chat_group:
             with gr.Row():
-                # Left column for user profile
+                # --- User Profile ---
                 with gr.Column(scale=1):
                     gr.Markdown("## Thông tin cá nhân")
                     gr.Markdown("AI lưu lại thông tin của bạn chỉ để hiểu bạn hơn.")
-                    share_info_checkbox = gr.Checkbox(label="Cho phép AI truy cập thông tin cá nhân", value=True, interactive=True)
                     real_name = gr.Textbox(label="Họ và tên", placeholder="Nhập tên của bạn")
                     age = gr.Number(label="Tuổi")
                     gender = gr.Textbox(label="Giới tính", placeholder="Nhập giới tính của bạn")
@@ -546,57 +807,9 @@ def create_user_interface():
                     password_input = gr.Textbox(label="Nhập mật khẩu", type="password", visible=False)
                     password_error = gr.Markdown(visible=False)
 
-                    hide_profile_button.click(
-                        fn=lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]),
-                        inputs=[],
-                        outputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, show_profile_button]
-                    )
-
-                    show_profile_button.click(
-                        fn=lambda: (gr.update(visible=True), gr.update(visible=True, value="")),
-                        inputs=[],
-                        outputs=[password_input, password_error]
-                    )
-
-                    password_input.submit(
-                        fn=lambda pwd, info: (
-                            [gr.update(visible=True) for _ in range(10)] +  # 10 profile fields
-                            [
-                                gr.update(visible=True),  # save_profile
-                                gr.update(visible=True),  # hide_profile_button
-                                gr.update(visible=False),  # password_input
-                                gr.update(visible=False)   # password_error
-                            ]
-                            if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
-                            else [gr.update(visible=False) for _ in range(10)] +
-                            [
-                                gr.update(visible=False),  # save_profile
-                                gr.update(visible=False),  # hide_profile_button
-                                gr.update(visible=True),   # password_input
-                                gr.update(visible=True, value="Incorrect password")  # password_error
-                            ]
-                        ),
-                        inputs=[password_input, login_info],
-                        outputs=[
-                            real_name, age, gender, height, weight, job,
-                            muscle_percentage, passion, vegan_checkbox, personality_text,
-                            save_profile, hide_profile_button, password_input, password_error
-                        ]
-                    )
-                    
-
-                # Chat and inputs section
-
+                # --- Chat and Inputs ---
                 with gr.Column(scale=3):
-                    # First, create the personality dropdown since it's needed for the chatbot
-                    personality = gr.Dropdown(
-                        choices=personality_choices,
-                        value=personality_choices[0],
-                        label="Chọn tính cách AI",
-                        interactive=True
-                    )
-
-                    # Now we can create the chatbot with the correct avatar
+                    personality = gr.Dropdown(choices=list(PERSONALITIES.keys()), value=list(PERSONALITIES.keys())[0], label="Chọn tính cách AI", interactive=True)
                     chatbot = gr.Chatbot(
                         elem_id="chatbot",
                         height=1000,
@@ -604,20 +817,10 @@ def create_user_interface():
                         elem_classes="custom-chatbot",
                         render_markdown=True,
                         container=True,
-                        avatar_images=[None, get_avatar_path(personality_choices[0])],  # Only show bot avatar
+                        avatar_images=[None, get_avatar_path(list(PERSONALITIES.keys())[0])],
                         show_copy_button=True,
                         show_share_button=False,
                         bubble_full_width=False,
-                    )
-
-                    # Update avatar when personality changes
-                    def update_avatar(personality_name):
-                        return gr.update(avatar_images=[None, get_avatar_path(personality_name)])
-
-                    personality.change(
-                        fn=update_avatar,
-                        inputs=[personality],
-                        outputs=[chatbot]
                     )
 
                     with gr.Row():
@@ -632,121 +835,15 @@ def create_user_interface():
                             prompt_helper = gr.Button("💡", elem_classes="action-button", visible=True)
                         with gr.Column(scale=1):
                             send = gr.Button("Gửi", variant="primary")
-                    stop = gr.Button("Dừng tạo câu trả lời")
+                            stop = gr.Button("Dừng tạo câu trả lời")
 
-                    # Add event handlers for the new buttons
-                    def generate_better_prompt(message, personality_choice):
-                        if not message.strip():
-                            return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
-                        
-                        # Create a system message asking for prompt improvement
-                        system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
-                        Consider the following aspects:
-                        1. Clarity and specificity
-                        2. Context and background information
-                        3. Desired output format
-                        4. Constraints or requirements
-                        
-                        Provide specific suggestions based on the input text."""
-                        
-                        messages = [
-                            {
-                                'role': 'system',
-                                'content': system_message
-                            },
-                            {
-                                'role': 'user',
-                                'content': f"Please help me improve this prompt: {message}"
-                            }
-                        ]
-                        
-                        try:
-                            # Generate suggestions using the AI model
-                            response = chat_with_model(messages, MODEL_DISPLAY_NAMES.keys()[0])  # Use default model
-                            return response
-                        except Exception as e:
-                            logging.error(f"Error in generate_better_prompt: {str(e)}")
-                            return "Xin lỗi, đã có lỗi xảy ra khi tạo gợi ý. Vui lòng thử lại."
-
-                    prompt_helper.click(
-                        fn=generate_better_prompt,
-                        inputs=[msg, personality],
-                        outputs=[msg]
-                    )
-
-                    def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):
-                        if not chatbot_history or message_index >= len(chatbot_history):
-                            return chatbot_history
-                        
-                        if not login_info["logged_in"]:
-                            return chatbot_history
-                            
-                        user_message = chatbot_history[message_index][0]
-                        
-                        # Get personality data
-                        personality_data = PERSONALITIES.get(personality_choice, {})
-                        personality_prompt = personality_data.get("system", "")
-                        
-                        # Create the conversation history
-                        messages = []
-                        messages.append({
-                            'role': 'system',
-                            'content': personality_prompt
-                        })
-                        
-                        # Add context from previous messages
-                        for i in range(message_index):
-                            if chatbot_history[i][0]:  # User message
-                                messages.append({
-                                    'role': 'user',
-                                    'content': chatbot_history[i][0]
-                                })
-                            if chatbot_history[i][1]:  # Assistant message
-                                messages.append({
-                                    'role': 'assistant',
-                                    'content': chatbot_history[i][1]
-                                })
-                        
-                        # Add the current user message
-                        messages.append({
-                            'role': 'user',
-                            'content': user_message
-                        })
-                        
-                        try:
-                            # Generate new response using the AI model
-                            response = chat_with_model(messages, model_choice)
-                            chatbot_history[message_index][1] = response
-                            
-                            # Save the updated chat history
-                            username = login_info["username"]
-                            chat_id = current_chat_id.value
-                            if chat_id:
-                                save_chat_history(username, chat_id, chatbot_history)
-                            
-                        except Exception as e:
-                            logging.error(f"Error in regenerate_response: {str(e)}")
-                            chatbot_history[message_index][1] = "Xin lỗi, đã có lỗi xảy ra khi tạo lại câu trả lời. Vui lòng thử lại."
-                        
-                        return chatbot_history
-
-                    # Add regenerate functionality to chatbot
-                    chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
-
-                # Right column (model, internet, new chat, premade prompts)
+                # --- Settings and Tools ---
                 with gr.Column(scale=1):
-                    model = gr.Dropdown(
-                        choices=model_choices,
-                        value=model_choices[0],
-                        label="Chọn mô hình AI",
-                        interactive=True
-                    )
+                    model = gr.Dropdown(choices=list(MODEL_DISPLAY_NAMES.keys()), value=list(MODEL_DISPLAY_NAMES.keys())[0], label="Chọn mô hình AI", interactive=True)
                     use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
                     new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
-                    
                     gr.Markdown("### Thư viện công cụ")
                     premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
-                    
                     gr.Markdown("## Lịch sử trò chuyện")
                     chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
                     with gr.Row():
@@ -755,755 +852,58 @@ def create_user_interface():
                     rename_chat_textbox = gr.Textbox(placeholder="Enter new chat name", visible=False)
 
         # ************************************************************************
-        # *                  Save Profile Info Function (Corrected)           *
+        # *                         Event Handlers                             *
         # ************************************************************************
 
-        def save_profile_info(real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info):
-            if not login_info.get("logged_in", False):
-                return
+        # --- Login/Registration ---
+        login_button.click(login, [username, password], [login_group, chat_group, login_info, chatbot, current_chat_id, personality, login_message, chat_history_dropdown, admin_panel, selected_user, admin_chatbot, personality, model, real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, show_profile_button, password_input, password_error])
+        create_user_button.click(create_new_user, [username, password], [login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message, user_selector, admin_panel, current_chat_id, chat_history_dropdown, personality, model])
 
-            # --- Conversion and Saving ---
-            try:
-                height = float(height) if height else None
-                weight = float(weight) if weight else None
-                age = int(age) if age else None
-            except (ValueError, TypeError):
-                height = None
-                weight = None
-                age = None
-            
-            username = login_info["username"]
-            user_data = load_user_data(username)
-            if user_data:
-                user_data["profile"] = {
-                    "real_name": real_name,
-                    "age": age,
-                    "gender": gender,
-                    "height": height,
-                    "weight": weight,
-                    "job": job,
-                    "muscle_percentage": muscle_percentage,
-                    "passion": passion,
-                    "vegan": vegan_checkbox,
-                    "personality": personality_text
-                }
-                save_user_data(username, user_data)
-                
-                # Return updates to keep showing the entered information
-                return [
-                    gr.update(visible=True),    # save_profile
-                    gr.update(value=real_name), # real_name
-                    gr.update(value=age),       # age
-                    gr.update(value=gender),    # gender
-                    gr.update(value=height),    # height
-                    gr.update(value=weight),    # weight
-                    gr.update(value=job),       # job
-                    gr.update(value=muscle_percentage), # muscle_percentage
-                    gr.update(value=passion),   # passion
-                    gr.update(value=vegan_checkbox),    # vegan_checkbox
-                    gr.update(value=personality_text),  # personality_text
-                    gr.update(visible=False)    # show_profile_button
-                ]
-        # ************************************************************************
-        # *                     Load Profile Info Function                      *
-        # ************************************************************************
-    
-        def load_profile_info(login_info):
-            if not login_info["logged_in"]:
-                return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
-
-            username = login_info["username"]
-            user_data = load_user_data(username)
-            if user_data and "profile" in user_data:
-                profile = user_data["profile"]
-                # Convert numeric values to strings with proper handling
-                height = str(profile.get('height', '')) if profile.get('height') is not None else ''
-                weight = str(profile.get('weight', '')) if profile.get('weight') is not None else ''
-                age = str(profile.get('age', '')) if profile.get('age') is not None else ''
-
-                profile_info = f"""
-        Thông tin người dùng:
-        - Tên: {profile.get('real_name', '')}
-        - Tuổi: {age}
-        - Giới tính: {profile.get('gender', '')}
-        - Chiều cao: {height} cm
-        - Cân nặng: {weight} kg
-        - Nghề nghiệp: {profile.get('job', '')}
-        - Phần trăm cơ: {profile.get('muscle_percentage', '')}
-        - Phần trăm mỡ: {profile.get('passion', '')}
-        - Ăn chay: {'Có' if profile.get('vegan', False) else 'Không'}
-        - Tính cách: {profile.get('personality', '')}
-        """.encode('utf-8').decode('utf-8')
-
-                return [
-                    gr.update(visible=False),  # Hide save_profile button
-                    gr.update(value=""),  # real_name
-                    gr.update(value=""),  # age
-                    gr.update(value=""),  # gender
-                    gr.update(value=""),  # height
-                    gr.update(value=""),  # weight
-                    gr.update(value=""),  # job
-                    gr.update(value=""),  # muscle_percentage
-                    gr.update(value=""),  # passion
-                    gr.update(value=False),  # vegan_checkbox
-                    gr.update(value=""),  # personality_text
-                    gr.update(visible=True),  # Show show_profile_button
-                    gr.update(visible=True, value="It's so nice to know more about you. Do you want to hide the information? (You can still update it later)"),  # Update password_error with confirmation message
-                    gr.update(visible=True)  # confirm_button
-                
-                ] + [gr.update(choices=list(PERSONALITIES.keys())), gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))]
-            return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
-
-
-        # ************************************************************************
-        # *                       New Chat Function                          *
-        # ************************************************************************
-
-        def new_chat(login_info, personality_choice, model_choice):
-            if login_info["logged_in"]:
-                username = login_info["username"]
-                user_data = load_user_data(username)
-
-                if user_data is None:
-                    user_data = {"next_chat_id": 1, "chat_history": {"1": []}, "settings": {}}  # Initialize user data if None
-                    save_chat_history(username, "1", [])  # Create first chat file
-                    save_user_data(username, user_data)
-
-                # Generate new chat ID
-                new_chat_id = str(user_data["next_chat_id"])
-                user_data["next_chat_id"] += 1
-
-                # Create new chat entry in the dictionary
-                user_data["chat_history"][new_chat_id] = []  # Initialize as an empty list
-                
-                # Add timestamp as default title
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                user_data[f"title_{new_chat_id}"] = timestamp
-
-                # Update current chat ID
-                current_chat_id.value = new_chat_id
-
-                # Save user data
-                save_user_data(username, user_data)
-
-                # Get updated chat titles
-                chat_titles = get_chat_titles(username)
-
-                return [], new_chat_id, gr.update(choices=chat_titles, value=(timestamp, new_chat_id))
-            else:
-                return [], None, gr.update(choices=[])
-
-        # ************************************************************************
-        # *                  Load Selected Chat Function                     *
-        # ************************************************************************
-
-        def load_selected_chat(login_info, chat_id):
-            chat_history = []  # Initialize chat_history with empty list
-            if login_info["logged_in"] and chat_id:
-                username = login_info["username"]
-                user_data = load_user_data(username)
-                if chat_id in user_data["chat_history"]:
-                    chat_history = load_chat_history(username, chat_id)
-
-                if chat_history is None:
-                    # Handle case where chat history file doesn't exist
-                    logging.warning(f"Chat history not found for chat ID {chat_id}")
-                    return [], chat_id  # Return empty history and current chat ID
-                
-                # Get the timestamp for the selected chat
-                chat_timestamp = user_data.get(f"title_{chat_id}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-                current_chat_id.value = chat_id
-                return chat_history, chat_id
-
-            else:
-                return [], None
-
-        # ************************************************************************
-        # *                    Stream Chat Function (Modified)                 *
-        # ************************************************************************
-
-        def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet):
-            """
-            Streams the response from Ollama word by word with a delay.
-            """
-            global stop_generation
-            stop_generation = False
-
-            # Ensure current_chat_id is a string
-            current_chat_id = str(current_chat_id)
-            if not login_info.get("logged_in", False):
-                return [], history
-
-            history = history or []
-
-            if not message or not message.strip():
-                return history  # Return without changing history if the message is empty
-
-            history.append([message, None])  # Add user message as a list of [user_message, None]
-            
-            try:
-                response = ""
-                personality_data = PERSONALITIES.get(personality)
-                personality_prompt = personality_data.get("system", "") if personality_data else ""
-                personality_links = personality_data.get("links", []) if personality_data else []
-
-                # Get an example response for the selected personality
-                if personality in EXAMPLE_RESPONSES:
-                    example = random.choice(EXAMPLE_RESPONSES[personality])
-                    personality_prompt = f"""
-                    {personality_prompt}
-
-                    QUAN TRỌNG: Bạn phải tuân theo các quy tắc sau trong các phản hồi của mình: 
-                    1. Luôn duy trì tính cách và phong cách nói chuyện như trong ví dụ dưới đây 
-                    2. Bao gồm các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn như trong ví dụ 
-                    3. Sử dụng các mẫu ngôn ngữ và cách diễn đạt tương tự 
-                    4. Giữ nguyên mức độ trang trọng và giọng điệu 
-                    5. Duy trì xưng hô đã được hướng dẫn, không thay đổi xưng hô trong hội thoại Ví dụ về phong cách phản hồi cần tuân theo: {example} 
-                    Nhớ rằng: Mỗi phản hồi của bạn phải tuân theo phong cách này một cách chính xác, bao gồm cả các biểu hiện cảm xúc và hành động trong dấu ngoặc đơn.
-                    """
-
-                # Add user profile information to system message if allowed
-                if share_info_checkbox.value:
-                    user_data = load_user_data(login_info["username"])
-                    if user_data and "profile" in user_data:
-                        profile = user_data["profile"]
-                        user_info = format_user_info(profile)
-                        personality_prompt += f"\n\nUser Information:\n{user_info}"
-
-                # Skip personality prompt for certain personalities
-                skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
-                if skip_personality_prompt:
-                    system_message = personality_data.get("system", "")
-                else:
-                    system_message = f"{personality_prompt}\n\n{personality_data.get('system', '')}"
-
-                # Create the conversation history
-                messages = []
-                messages.append({
-                    'role': 'system',
-                    'content': system_message
-                })
-
-                # Check if the message is from a premade prompt
-                current_prompt = None
-                for prompt_name, prompt_data in PREMADE_PROMPTS.items():
-                    if prompt_data["user"] in message:
-                        current_prompt = prompt_data
-                        break
-
-                if current_prompt:
-                    # Add the system prompt for the premade prompt
-                    messages.append({
-                        'role': 'system',
-                        'content': current_prompt["system"]
-                })
-
-                # Add conversation history
-                if history:
-                    for user_msg, assistant_msg in history:
-                        if user_msg:
-                            messages.append({
-                                'role': 'user',
-                                'content': user_msg
-                            })
-                        if assistant_msg:
-                            messages.append({
-                                'role': 'assistant',
-                                'content': assistant_msg
-                            })
-
-                # Add current message
-                messages.append({
-                    'role': 'user',
-                    'content': message
-                })
-
-                # Generate response using ollama.chat
-                response_complete = ""
-                search_links = [] # Initialize search_links here
-                
-                # Stream response from Ollama
-                response_stream = ollama.chat(
-                    model=MODEL_DISPLAY_NAMES.get(ollama_model, ollama_model),
-                    messages=messages,
-                    stream=True
-                )
-
-                history = history or []
-                current_response = ""
-                
-                for chunk in response_stream:
-                    if stop_generation:
-                        break
-
-                    # Access the content correctly from the chunk
-                    if 'message' in chunk and 'content' in chunk['message']:
-                        response_chunk = chunk['message']['content']
-                        current_response += response_chunk
-                        
-                        # Create a new history with the current message and accumulated response
-                        new_history = history.copy()
-                        new_history.append([message, current_response])  # Use list instead of tuple
-                        yield new_history
-
-                # Save final chat history
-                if login_info.get("logged_in"):
-                    username = login_info["username"]
-                    final_history = history.copy()
-                    final_history.append([message, current_response])  # Use list instead of tuple
-                    save_chat_history(username, current_chat_id, final_history)
-
-            except Exception as e:
-                logging.error(f"Error in stream_chat: {str(e)}")
-                history = history or []
-                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])  # Use list instead of tuple
-                yield history
-
-        # ************************************************************************
-        # *                       Stop Generation Function                    *
-        # ************************************************************************
-
-        def stop_gen():
-            global stop_generation
-            stop_generation = True
-
-        # ************************************************************************
-        # *                     Update Admin View Function                    *
-        # ************************************************************************
-
-        def update_admin_view(selected_user):
-            if selected_user:
-                user_data = load_user_data(selected_user)
-                # Flatten the chat history for admin view
-                admin_chat_history = []
-                for chat_id, chat in user_data.get("chat_history", {}).items():
-                    for msg in chat:
-                        admin_chat_history.append(msg)
-                return admin_chat_history
-            return []
-
-        # ************************************************************************
-        # *                    Show All Chats Function                       *
-        # ************************************************************************
-
-        def show_all_chats():
-            all_chats_history = []
-            for user_file in os.listdir(USER_DATA_FOLDER):
-                if os.path.isdir(os.path.join(USER_DATA_FOLDER, user_file)):
-                    username = user_file
-                    user_data = load_user_data(username)
-                    all_chats_history.append([None, f"=== Chat History for {username} ==="])
-                    for chat_id, chat in user_data.get("chat_history", {}).items():
-                        for msg in chat:
-                            if msg[0]:  # User message
-                                all_chats_history.append([msg[0], None])
-                            elif msg[1]: # Bot message
-                                all_chats_history.append([None, msg[1]])
-                    all_chats_history.append([None, "=== End of Chat History ==="])
-            return all_chats_history
-
-        # ************************************************************************
-        # *                      Refresh Users Function                      *
-        # ************************************************************************
-
-        def refresh_users():
-            user_files = os.listdir(USER_DATA_FOLDER)
-            user_names = [f for f in user_files if os.path.isdir(os.path.join(USER_DATA_FOLDER, f))]
-            return gr.update(choices=user_names)
-
-        # ************************************************************************
-        # *                          Login Function                           *
-        # ************************************************************************
-
-        def login(username, password):
-            """Handle user login."""
-            if not username or not password:
-                return [
-                    gr.update(visible=True),  # login_group
-                    gr.update(visible=False),  # chat_group
-                    {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login_info
-                    [],  # chatbot
-                    None,  # current_chat_id
-                    None,  # personality
-                    "Vui lòng nhập tên đăng nhập và mật khẩu.",  # login_message
-                    gr.update(choices=[]),  # chat_history_dropdown
-                    gr.update(visible=False),  # admin_panel
-                    "0",  # selected_user
-                    [],  # admin_chatbot
-                    gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
-                    gr.update(choices=model_choices),  # model choices
-                    # Profile fields
-                    gr.update(value="", visible=False),  # real_name
-                    gr.update(value=None, visible=False),  # age
-                    gr.update(value="", visible=False),  # gender
-                    gr.update(value=None, visible=False),  # height
-                    gr.update(value=None, visible=False),  # weight
-                    gr.update(value="", visible=False),  # job
-                    gr.update(value="", visible=False),  # muscle_percentage
-                    gr.update(value="", visible=False),  # passion
-                    gr.update(value=False, visible=False),  # vegan_checkbox
-                    gr.update(value="", visible=False),  # personality_text
-                    gr.update(visible=False),  # save_profile
-                    gr.update(visible=False),  # hide_profile_button
-                    gr.update(visible=True),   # show_profile_button
-                    gr.update(visible=False),  # password_input
-                    gr.update(visible=False)   # password_error
-                ]
-
-            user_data = load_user_data(username)
-            if not user_data or user_data.get("password") != password:
-                return [
-                    gr.update(visible=True),  # login_group
-                    gr.update(visible=False),  # chat_group
-                    {"username": "", "password": "", "logged_in": False, "is_admin": False},  # login_info
-                    [],  # chatbot
-                    None,  # current_chat_id
-                    None,  # personality
-                    "Tên đăng nhập hoặc mật khẩu không đúng.",  # login_message
-                    gr.update(choices=[]),  # chat_history_dropdown
-                    gr.update(visible=False),  # admin_panel
-                    "0",  # selected_user
-                    [],  # admin_chatbot
-                    gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
-                    gr.update(choices=model_choices),  # model choices
-                    # Profile fields
-                    gr.update(value="", visible=False),  # real_name
-                    gr.update(value=None, visible=False),  # age
-                    gr.update(value="", visible=False),  # gender
-                    gr.update(value=None, visible=False),  # height
-                    gr.update(value=None, visible=False),  # weight
-                    gr.update(value="", visible=False),  # job
-                    gr.update(value="", visible=False),  # muscle_percentage
-                    gr.update(value="", visible=False),  # passion
-                    gr.update(value=False, visible=False),  # vegan_checkbox
-                    gr.update(value="", visible=False),  # personality_text
-                    gr.update(visible=False),  # save_profile
-                    gr.update(visible=False),  # hide_profile_button
-                    gr.update(visible=True),   # show_profile_button
-                    gr.update(visible=False),  # password_input
-                    gr.update(visible=False)   # password_error
-                ]
-
-            # Get profile data
-            profile_data = user_data.get("profile", {})
-            
-            # Get chat history titles
-            chat_titles = get_chat_titles(username)
-            
-            # Set default titles for chats that don't have one
-            for chat_id in user_data.get("chat_history", {}):
-                if f"title_{chat_id}" not in user_data:
-                    user_data[f"title_{chat_id}"] = f"Chat {chat_id}"
-            save_user_data(username, user_data)
-            
-            return [
-                gr.update(visible=False),  # login_group
-                gr.update(visible=True),   # chat_group
-                {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},  # login_info
-                [],  # chatbot
-                None,  # current_chat_id
-                "Trợ lý",  # personality - Set default personality
-                gr.update(visible=False),  # login_message
-                gr.update(choices=chat_titles, value=None),  # chat_history_dropdown
-                gr.update(visible=username.lower() == "admin"),  # admin_panel
-                "0",  # selected_user
-                [],  # admin_chatbot
-                gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
-                gr.update(choices=model_choices),  # model choices
-                # Profile fields with values from user_data
-                gr.update(value=profile_data.get("real_name", ""), visible=False),
-                gr.update(value=profile_data.get("age", None), visible=False),
-                gr.update(value=profile_data.get("gender", ""), visible=False),
-                gr.update(value=profile_data.get("height", None), visible=False),
-                gr.update(value=profile_data.get("weight", None), visible=False),
-                gr.update(value=profile_data.get("job", ""), visible=False),
-                gr.update(value=profile_data.get("muscle_percentage", ""), visible=False),
-                gr.update(value=profile_data.get("passion", ""), visible=False),
-                gr.update(value=profile_data.get("vegan_checkbox", False), visible=False),
-                gr.update(value=profile_data.get("personality_text", ""), visible=False),
-                gr.update(visible=False),  # save_profile
-                gr.update(visible=False),  # hide_profile_button
-                gr.update(visible=True),   # show_profile_button
-                gr.update(visible=False),  # password_input
-                gr.update(visible=False)   # password_error
-            ]
-        # ************************************************************************
-        # *                     Connect Admin Panel Components                 *
-        # ************************************************************************
-
-        # Connect the admin panel components
+        # --- Admin Panel ---
         refresh_button.click(refresh_users, outputs=[user_selector])
-        user_selector.change(update_admin_view, inputs=[user_selector], outputs=[admin_chatbot])
+        user_selector.change(update_admin_view, inputs=[selected_user], outputs=[admin_chatbot])
         show_all_chats_button.click(show_all_chats, outputs=[admin_chatbot])
 
-        # ************************************************************************
-        # *                     Connect Login and other Components             *
-        # ************************************************************************
+        # --- Profile Management ---
+        save_profile.click(save_profile_info, [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info], [save_profile, real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, show_profile_button])
+        hide_profile_button.click(lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]), [], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, show_profile_button])
+        show_profile_button.click(lambda: [gr.update(visible=True), gr.update(visible=True, value="")], None, [password_input, password_error])
+        password_input.submit(lambda pwd, info: ([gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)] if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]), [password_input, login_info], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error])
 
-        # Update login button to handle admin view
-        login_button.click(
-            fn=login,
-            inputs=[username, password],
-            outputs=[
-                login_group,  # Group
-                chat_group,   # Group
-                login_info,   # State
-                chatbot,      # Chatbot
-                current_chat_id,  # State
-                personality,  # Dropdown
-                login_message,  # Markdown
-                chat_history_dropdown,  # Dropdown
-                admin_panel,  # Group
-                selected_user,  # State
-                admin_chatbot,  # Chatbot
-                personality,  # Dropdown
-                model,  # Dropdown
-                # Profile fields
-                real_name,  # Textbox
-                age,  # Number
-                gender,  # Textbox
-                height,  # Number
-                weight,  # Number
-                job,  # Textbox
-                muscle_percentage,  # Textbox
-                passion,  # Textbox
-                vegan_checkbox,  # Checkbox
-                personality_text,  # TextArea
-                save_profile,  # Button
-                hide_profile_button,  # Button
-                show_profile_button,  # Button
-                password_input,  # Textbox
-                password_error  # Markdown
-            ]
-        )
-
-        # Connect hide profile button
-        hide_profile_button.click(
-            fn=lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]),
-            inputs=[],
-            outputs=[
-                real_name, age, gender, height, weight, job,
-                muscle_percentage, passion, vegan_checkbox, personality_text,
-                save_profile, hide_profile_button, show_profile_button
-            ]
-        )
-
-        # Connect show profile button
-        show_profile_button.click(
-            lambda: [gr.update(visible=True), gr.update(visible=True, value="")],
-            None,
-            [password_input, password_error]
-        )
-
-        # Connect password input
-        password_input.submit(
-            fn=lambda pwd, info: (
-                [gr.update(visible=True) for _ in range(10)] +  # 10 profile fields
-                [
-                    gr.update(visible=True),  # save_profile
-                    gr.update(visible=True),  # hide_profile_button
-                    gr.update(visible=False),  # password_input
-                    gr.update(visible=False)   # password_error
-                ]
-                if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd
-                else [gr.update(visible=False) for _ in range(10)] +
-                [
-                    gr.update(visible=False),  # save_profile
-                    gr.update(visible=False),  # hide_profile_button
-                    gr.update(visible=True),   # password_input
-                    gr.update(visible=True, value="Incorrect password")  # password_error
-                ]
-            ),
-            inputs=[password_input, login_info],
-            outputs=[
-                real_name, age, gender, height, weight, job,
-                muscle_percentage, passion, vegan_checkbox, personality_text,
-                save_profile, hide_profile_button, password_input, password_error
-            ]
-        )
-
-        # ************************************************************************
-        # *                         User Message Function                      *
-        # ************************************************************************
-
-        def user_msg(user_message, history, login_info, current_chat_id):
-            # Ensure current_chat_id is a string
-            current_chat_id = str(current_chat_id)
-            if not login_info.get("logged_in", False):
-                return "Vui lòng đăng nhập trước khi gửi tin nhắn.", history
-
-            history = history or []
-
-            if not user_message or not user_message.strip():
-                return "", history  # Return without changing history if the message is empty
-
-            history.append([user_message, None])  # Add user message as a list of [user_message, None]
-            return "", history
-
-        # ************************************************************************
-        # *                        Bot Response Function (Modified)            *
-        # ************************************************************************
-
-        def bot_response(message, history, login_info, personality, model, current_chat_id, use_internet):
-            if not message:
-                return [] if history is None else history
-            
-            history = [] if history is None else history
-            
-            try:
-                for new_history in stream_chat(message, history, login_info, personality, model, current_chat_id, use_internet):
-                    if isinstance(new_history, list):
-                        history = new_history
-                        yield history
-            except Exception as e:
-                logging.error(f"Error in bot_response: {str(e)}")
-                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])  # Use list instead of tuple
-                yield history
-
-        # Set up chat handlers
+        # --- Chat and Input ---
         def on_submit(message, history, login_info, current_chat_id, personality_choice, model_choice, use_internet):
-            # First, update history with user message
             history = history or []
             history.append([message, None])
-            
-            # Then generate bot response
             try:
-                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet):
-                    if isinstance(new_history, list):
-                        yield new_history
+                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox.value):
+                    yield new_history
             except Exception as e:
                 logging.error(f"Error in on_submit: {str(e)}")
                 history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])
                 yield history
 
-        msg.submit(
-            on_submit,
-            inputs=[msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox],
-            outputs=chatbot
-        ).then(
-            lambda: "",
-            None,
-            msg
-        )
-
-        send.click(
-            on_submit,
-            inputs=[msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox],
-            outputs=chatbot
-        ).then(
-            lambda: "",
-            None,
-            msg
-        )
-
+        msg.submit(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
+        send.click(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
         stop.click(stop_gen)
+        prompt_helper.click(generate_better_prompt, [msg, personality], [msg])
 
-        save_profile.click(
-            save_profile_info,
-            inputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info],
-            outputs=[save_profile, real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, show_profile_button]
-        )
-    
-        
-        hide_profile_button.click(
-            fn=lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]),
-            inputs=[],
-            outputs=[real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, hide_profile_button, save_profile]
-        )
-
-        load_chat_button.click(
-            fn=load_selected_chat,
-            inputs=[login_info, chat_history_dropdown],
-            outputs=[chatbot, current_chat_id]
-        )
-        # ************************************************************************
-        # *                    Add Premade Prompt Function                    *
-        # ************************************************************************
-        
-        def add_premade_prompt(prompt_name, current_msg, history):
-            prompt_data = PREMADE_PROMPTS.get(prompt_name, {})
-            if prompt_data:
-                user_instruction = prompt_data.get("user", "")
-                new_history = history + [[user_instruction, None]] if history else [[user_instruction, None]]
-                return "", new_history
-            return current_msg, history
-
+        # --- Settings and Tools ---
+        new_chat_button.click(new_chat, [login_info, personality, model], [chatbot, current_chat_id, chat_history_dropdown])
+        personality.change(new_chat, [login_info, personality, model], [chatbot, current_chat_id, chat_history_dropdown])
+        personality.change(lambda personality_name: gr.update(avatar_images=[None, get_avatar_path(personality_name)]), [personality], [chatbot])
+        chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
         for button, prompt_name in zip(premade_prompt_buttons, PREMADE_PROMPTS.keys()):
-            button.click(
-                add_premade_prompt,
-                inputs=[gr.State(prompt_name), msg, chatbot],
-                outputs=[msg, chatbot]
-            )
-
-        rename_chat_button.click(
-            fn=lambda: gr.update(visible=True),
-            inputs=[],
-            outputs=[rename_chat_textbox]
-        )
-
-        def rename_chat(new_name, chat_id, login_info):
-            if not login_info["logged_in"] or not chat_id or not new_name:
-                return gr.update(choices=get_chat_titles(login_info["username"])), gr.update(visible=False)
-            
-            username = login_info["username"]
-            user_data = load_user_data(username)
-            
-            if user_data and chat_id in user_data.get("chat_history", {}):
-                # Update the chat title
-                user_data[f"title_{chat_id}"] = new_name
-                save_user_data(username, user_data)
-                
-                # Get updated chat titles
-                chat_titles = get_chat_titles(username)
-                
-                # Find the index of the renamed chat
-                selected_index = None
-                for i, (title, id) in enumerate(chat_titles):
-                    if id == chat_id:
-                        selected_index = i
-                        break
-                
-                return gr.update(choices=chat_titles, value=chat_titles[selected_index] if selected_index is not None else None), gr.update(visible=False)
-            
-            return gr.update(choices=get_chat_titles(username)), gr.update(visible=False)
-
-        rename_chat_textbox.submit(
-            fn=rename_chat,
-            inputs=[rename_chat_textbox, current_chat_id, login_info],
-            outputs=[chat_history_dropdown, rename_chat_textbox]
-        )
-        
-        new_chat_button.click(
-            fn=new_chat,
-            inputs=[login_info, personality, model],
-            outputs=[chatbot, current_chat_id, chat_history_dropdown]
-        )
-
-        personality.change(
-            fn=new_chat,
-            inputs=[login_info, personality, model],
-            outputs=[chatbot, current_chat_id, chat_history_dropdown]
-        )
-
-        create_user_button.click(
-            fn=create_new_user,
-            inputs=[username, password],
-            outputs=[login_group, chat_group, login_info, chatbot, user_avatar, bot_avatar, login_message, user_selector, admin_panel, current_chat_id, chat_history_dropdown, personality, model]
-        )
+            button.click(add_premade_prompt, [gr.State(prompt_name), msg, chatbot], [msg, chatbot])
+        load_chat_button.click(load_selected_chat, [login_info, chat_history_dropdown], [chatbot, current_chat_id])
+        rename_chat_button.click(lambda: gr.update(visible=True), [], [rename_chat_textbox])
+        rename_chat_textbox.submit(rename_chat, [rename_chat_textbox, current_chat_id, login_info], [chat_history_dropdown, rename_chat_textbox])
 
     return user_interface
-
-
-
 
 # ************************************************************************
 # *                     Launch User Interface                          *
 # ************************************************************************
 
-user_interface = create_user_interface()
-user_interface.launch(
-    server_name="127.0.0.1",
-    server_port=7871,
-    share=False,
-)
+if __name__ == "__main__":
+    user_interface = create_user_interface()
+    user_interface.launch(server_name="127.0.0.1", server_port=7871, share=False)
