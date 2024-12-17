@@ -484,11 +484,11 @@ def create_user_interface():
                 with gr.Column(scale=1):
                     gr.Markdown("## Thông tin cá nhân")
                     gr.Markdown("AI lưu lại thông tin của bạn chỉ để hiểu bạn hơn.")
-                    share_info_checkbox = gr.Checkbox(label="Cho phép AI truy cập thông tin cá nhân", value=True)
+                    share_info_checkbox = gr.Checkbox(label="Cho phép AI truy cập thông tin cá nhân", value=True, interactive=True)
                     real_name = gr.Textbox(label="Họ và tên", placeholder="Nhập tên của bạn")
                     age = gr.Number(label="Tuổi")
                     gender = gr.Textbox(label="Giới tính", placeholder="Nhập giới tính của bạn")
-                    vegan_checkbox = gr.Checkbox(label="Ăn chay", value=False)
+                    vegan_checkbox = gr.Checkbox(label="Ăn chay", value=False, interactive=True)
                     height = gr.Number(label="Chiều cao (cm)")
                     weight = gr.Number(label="Cân nặng (kg)")
                     muscle_percentage = gr.Textbox(label="Phần trăm cơ (%)", placeholder="Nhập phần trăm cơ")
@@ -573,7 +573,7 @@ def create_user_interface():
                     premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
                     
                     gr.Markdown("## Lịch sử trò chuyện")
-                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True, allow_custom_value=True)
+                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
                     with gr.Row():
                         load_chat_button = gr.Button("Load Chat")
                         rename_chat_button = gr.Button("Rename Chat")
@@ -722,6 +722,7 @@ def create_user_interface():
         # ************************************************************************
 
         def load_selected_chat(login_info, chat_id):
+            chat_history = []  # Initialize chat_history with empty list
             if login_info["logged_in"] and chat_id:
                 username = login_info["username"]
                 user_data = load_user_data(username)
@@ -1247,50 +1248,38 @@ def create_user_interface():
             outputs=[rename_chat_textbox]
         )
 
+        def rename_chat(new_name, chat_id, login_info):
+            if not login_info["logged_in"] or not chat_id or not new_name:
+                return gr.update(choices=get_chat_titles(login_info["username"])), gr.update(visible=False)
+            
+            username = login_info["username"]
+            user_data = load_user_data(username)
+            
+            if user_data and chat_id in user_data.get("chat_history", {}):
+                # Update the chat title
+                user_data[f"title_{chat_id}"] = new_name
+                save_user_data(username, user_data)
+                
+                # Get updated chat titles
+                chat_titles = get_chat_titles(username)
+                
+                # Find the index of the renamed chat
+                selected_index = None
+                for i, (title, id) in enumerate(chat_titles):
+                    if id == chat_id:
+                        selected_index = i
+                        break
+                
+                return gr.update(choices=chat_titles, value=chat_titles[selected_index] if selected_index is not None else None), gr.update(visible=False)
+            
+            return gr.update(choices=get_chat_titles(username)), gr.update(visible=False)
+
         rename_chat_textbox.submit(
-            fn=lambda new_name, chat_id, login_info: (
-                get_chat_titles(login_info["username"]),
-                gr.update(visible=False)
-            ),
+            fn=rename_chat,
             inputs=[rename_chat_textbox, current_chat_id, login_info],
             outputs=[chat_history_dropdown, rename_chat_textbox]
         )
-
-        # Verify password and show profile
-        def verify_password_and_show_profile(password_attempt, login_info):
-            if password_attempt == login_info["password"]:
-                return [
-                    *[gr.update(visible=True) for _ in range(10)],  # Show all profile fields
-                    gr.update(visible=True),   # save_profile
-                    gr.update(visible=True),   # hide_profile_button
-                    gr.update(visible=False),  # show_profile_button
-                    gr.update(visible=False),  # password_input
-                    gr.update(visible=False)   # password_error
-                ]
-            else:
-                return [
-                    *[gr.update(visible=False) for _ in range(10)],  # Keep profile fields hidden
-                    gr.update(visible=False),  # save_profile
-                    gr.update(visible=False),  # hide_profile_button
-                    gr.update(visible=True),   # show_profile_button
-                    gr.update(visible=True),   # password_input
-                    gr.update(visible=True, value="Incorrect password. Please try again.")  # password_error
-                ]
-
-        show_profile_button.click(
-            lambda: [gr.update(visible=True), gr.update(visible=True, value="")],
-            None,
-            [password_input, password_error]
-        )
-
-        password_input.submit(
-            verify_password_and_show_profile,
-            [password_input, login_info],
-            [real_name, age, gender, height, weight, job, muscle_percentage, 
-             passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, 
-             show_profile_button, password_input, password_error]
-        )
-
+        
         new_chat_button.click(
             fn=new_chat,
             inputs=[login_info, personality, model],
