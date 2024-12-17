@@ -438,7 +438,45 @@ def create_user_interface():
     personality_choices = list(PERSONALITIES.keys())
     model_choices = list(MODEL_DISPLAY_NAMES.keys())
 
-    with gr.Blocks(css=custom_css) as user_interface:
+    with gr.Blocks(css="""
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .message-content {
+            flex-grow: 1;
+            position: relative;
+        }
+        .message-actions {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            gap: 5px;
+        }
+        .message:hover .message-actions {
+            display: flex;
+        }
+        .action-button {
+            padding: 2px 5px;
+            border-radius: 3px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.1);
+            font-size: 12px;
+        }
+        .action-button:hover {
+            background: rgba(0,0,0,0.2);
+        }
+        .input-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 5px;
+        }
+        """) as user_interface:
         gr.Markdown("# Earthship AI")
 
         # Initialize user data directory if it doesn't exist
@@ -543,15 +581,173 @@ def create_user_interface():
                 # Chat and inputs section
 
                 with gr.Column(scale=3):
-                    chatbot = gr.Chatbot(elem_id="chatbot", height=1000)
-                    msg = gr.Textbox(
-                        label="Nhập tin nhắn của bạn",
-                        placeholder="Nhập tin nhắn và nhấn Enter",
-                        elem_id="msg"
+                    chatbot = gr.Chatbot(
+                        elem_id="chatbot",
+                        height=1000,
+                        render=True,
+                        elem_classes="custom-chatbot",
+                        render_markdown=True,
+                        container=True,
+                        avatar_images=["user.png", "bot.png"],
+                        show_copy_button=True,
+                        show_share_button=False,
+                        bubble_full_width=False,
                     )
-                    send = gr.Button("Gửi", variant="primary")
+                    with gr.Row():
+                        with gr.Column(scale=12):
+                            msg = gr.Textbox(
+                                label="Nhập tin nhắn của bạn",
+                                placeholder="Nhập tin nhắn và nhấn Enter",
+                                elem_id="msg",
+                                container=True,
+                                show_copy_button=True,
+                            )
+                            prompt_helper = gr.Button("💡", elem_classes="action-button", visible=True)
+                        with gr.Column(scale=1):
+                            send = gr.Button("Gửi", variant="primary")
                     stop = gr.Button("Dừng tạo câu trả lời")
 
+                    # Add event handlers for the new buttons
+                    def generate_better_prompt(message):
+                        if not message.strip():
+                            return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
+                        return f"Dựa trên nội dung của bạn: '{message}', đây là một số gợi ý để cải thiện prompt:\n1. Thêm chi tiết về [điền vào]\n2. Xác định rõ mục đích [điền vào]\n3. Đặt ra giới hạn về [điền vào]"
+
+                    prompt_helper.click(
+                        fn=generate_better_prompt,
+                        inputs=[msg],
+                        outputs=[msg]
+                    )
+
+                    def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):
+                        if not chatbot_history or message_index >= len(chatbot_history):
+                            return chatbot_history
+                        
+                        if not login_info["logged_in"]:
+                            return chatbot_history
+                            
+                        user_message = chatbot_history[message_index][0]
+                        
+                        # Get personality data
+                        personality_data = PERSONALITIES.get(personality_choice, {})
+                        personality_prompt = personality_data.get("system", "")
+                        
+                        # Create the conversation history
+                        messages = []
+                        messages.append({
+                            'role': 'system',
+                            'content': personality_prompt
+                        })
+                        
+                        # Add context from previous messages
+                        for i in range(message_index):
+                            if chatbot_history[i][0]:  # User message
+                                messages.append({
+                                    'role': 'user',
+                                    'content': chatbot_history[i][0]
+                                })
+                            if chatbot_history[i][1]:  # Assistant message
+                                messages.append({
+                                    'role': 'assistant',
+                                    'content': chatbot_history[i][1]
+                                })
+                        
+                        # Add the current user message
+                        messages.append({
+                            'role': 'user',
+                            'content': user_message
+                        })
+                        
+                        try:
+                            # Generate new response using the AI model
+                            response = generate_response(messages, model_choice)
+                            chatbot_history[message_index][1] = response
+                            
+                            # Save the updated chat history
+                            username = login_info["username"]
+                            chat_id = current_chat_id.value
+                            if chat_id:
+                                save_chat_history(username, chat_id, chatbot_history)
+                            
+                        except Exception as e:
+                            logging.error(f"Error in regenerate_response: {str(e)}")
+                            chatbot_history[message_index][1] = "Xin lỗi, đã có lỗi xảy ra khi tạo lại câu trả lời. Vui lòng thử lại."
+                        
+                        return chatbot_history
+
+                    # Add regenerate functionality to chatbot
+                    chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
+                    
+                    # Add event handlers for the new buttons
+                    def generate_better_prompt(message):
+                        if not message.strip():
+                            return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
+                        return f"Dựa trên nội dung của bạn: '{message}', đây là một số gợi ý để cải thiện prompt:\n1. Thêm chi tiết về [điền vào]\n2. Xác định rõ mục đích [điền vào]\n3. Đặt ra giới hạn về [điền vào]"
+
+                    prompt_helper.click(
+                        fn=generate_better_prompt,
+                        inputs=[msg],
+                        outputs=[msg]
+                    )
+
+                    def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):
+                        if not chatbot_history or message_index >= len(chatbot_history):
+                            return chatbot_history
+                        
+                        if not login_info["logged_in"]:
+                            return chatbot_history
+                            
+                        user_message = chatbot_history[message_index][0]
+                        
+                        # Get personality data
+                        personality_data = PERSONALITIES.get(personality_choice, {})
+                        personality_prompt = personality_data.get("system", "")
+                        
+                        # Create the conversation history
+                        messages = []
+                        messages.append({
+                            'role': 'system',
+                            'content': personality_prompt
+                        })
+                        
+                        # Add context from previous messages
+                        for i in range(message_index):
+                            if chatbot_history[i][0]:  # User message
+                                messages.append({
+                                    'role': 'user',
+                                    'content': chatbot_history[i][0]
+                                })
+                            if chatbot_history[i][1]:  # Assistant message
+                                messages.append({
+                                    'role': 'assistant',
+                                    'content': chatbot_history[i][1]
+                                })
+                        
+                        # Add the current user message
+                        messages.append({
+                            'role': 'user',
+                            'content': user_message
+                        })
+                        
+                        try:
+                            # Generate new response using the AI model
+                            response = generate_response(messages, model_choice)
+                            chatbot_history[message_index][1] = response
+                            
+                            # Save the updated chat history
+                            username = login_info["username"]
+                            chat_id = current_chat_id.value
+                            if chat_id:
+                                save_chat_history(username, chat_id, chatbot_history)
+                            
+                        except Exception as e:
+                            logging.error(f"Error in regenerate_response: {str(e)}")
+                            chatbot_history[message_index][1] = "Xin lỗi, đã có lỗi xảy ra khi tạo lại câu trả lời. Vui lòng thử lại."
+                        
+                        return chatbot_history
+
+                    # Add regenerate functionality to chatbot
+                    chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
                 # Right column (personality, model, internet, new chat, premade prompts)
                 with gr.Column(scale=1):
                     personality = gr.Dropdown(
@@ -947,7 +1143,7 @@ def create_user_interface():
                     gr.update(visible=False),  # admin_panel
                     "0",  # selected_user
                     [],  # admin_chatbot
-                    gr.update(choices=personality_choices),  # personality choices
+                    gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
                     gr.update(choices=model_choices),  # model choices
                     # Profile fields
                     gr.update(value="", visible=False),  # real_name
@@ -981,7 +1177,7 @@ def create_user_interface():
                     gr.update(visible=False),  # admin_panel
                     "0",  # selected_user
                     [],  # admin_chatbot
-                    gr.update(choices=personality_choices),  # personality choices
+                    gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
                     gr.update(choices=model_choices),  # model choices
                     # Profile fields
                     gr.update(value="", visible=False),  # real_name
@@ -1019,13 +1215,13 @@ def create_user_interface():
                 {"username": username, "password": password, "logged_in": True, "is_admin": username.lower() == "admin"},  # login_info
                 [],  # chatbot
                 None,  # current_chat_id
-                None,  # personality
+                "Trợ lý",  # personality - Set default personality
                 gr.update(visible=False),  # login_message
                 gr.update(choices=chat_titles, value=None),  # chat_history_dropdown
                 gr.update(visible=username.lower() == "admin"),  # admin_panel
                 "0",  # selected_user
                 [],  # admin_chatbot
-                gr.update(choices=personality_choices),  # personality choices
+                gr.update(choices=personality_choices, value="Trợ lý"),  # personality choices
                 gr.update(choices=model_choices),  # model choices
                 # Profile fields with values from user_data
                 gr.update(value=profile_data.get("real_name", ""), visible=False),
