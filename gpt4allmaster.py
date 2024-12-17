@@ -4,6 +4,7 @@ import json
 import base64
 import random
 import logging
+import time
 from pathlib import Path
 import gradio as gr
 import ollama
@@ -11,7 +12,6 @@ from datetime import datetime
 import tiktoken
 import requests
 from bs4 import BeautifulSoup
-import time
 
 # ************************************************************************
 # *                         Logging Configuration                        *
@@ -555,7 +555,7 @@ def chat_with_model(messages, model_choice, max_tokens=1000):
         logging.error(f"Error in chat_with_model: {str(e)}")
         return "Xin lỗi, đã có lỗi xảy ra khi giao tiếp với mô hình AI."
 
-def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox):
+def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox, delay=0, initial_delay=2.0):
     """Streams the response from Ollama word by word."""
     global stop_generation
     stop_generation = False
@@ -573,6 +573,9 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
         return
     
     try:
+        # Add initial delay before starting to respond
+        time.sleep(initial_delay)
+        
         response = ""
         personality_data = PERSONALITIES.get(personality)
         personality_prompt = personality_data.get("system", "") if personality_data else ""
@@ -595,7 +598,12 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
 
         # Add user profile information if allowed
         if share_info_checkbox:
-            user_data = load_user_data(login_info["username"])
+            try:
+                user_data = load_user_data(login_info["username"])
+                if user_data:
+                    personality_prompt += f"\n\nUser Profile Information:\n{format_user_info(user_data)}"
+            except Exception as e:
+                logging.error(f"Error loading user data: {str(e)}")
 
         # Skip personality prompt for certain personalities
         skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
@@ -639,6 +647,7 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
                 break
             if 'message' in chunk and 'content' in chunk['message']:
                 response_chunk = chunk['message']['content']
+                time.sleep(delay)  # Delay between chunks
                 current_response += response_chunk
                 new_history = history[:-1] + [[message, current_response]]
                 yield new_history
@@ -879,19 +888,31 @@ def create_user_interface():
         password_input.submit(lambda pwd, info: ([gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)] if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]), [password_input, login_info], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error])
 
         # --- Chat and Input ---
-        def on_submit(message, history, login_info, current_chat_id, personality_choice, model_choice, use_internet):
+        def on_submit(message, history, login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox):
+            if not message:
+                return history
             history = history or []
             history.append([message, None])
             try:
-                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox.value):
+                for new_history in stream_chat(
+                    message, 
+                    history[:-1], 
+                    login_info, 
+                    personality_choice, 
+                    model_choice, 
+                    current_chat_id, 
+                    use_internet, 
+                    share_info_checkbox if share_info_checkbox is not None else False,
+                    delay=0.03,
+                    initial_delay=2.0
+                ):
                     yield new_history
             except Exception as e:
                 logging.error(f"Error in on_submit: {str(e)}")
-                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])
                 yield history
 
-        msg.submit(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
-        send.click(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
+        msg.submit(on_submit, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox, share_info_checkbox], chatbot).then(lambda: "", None, msg)
+        send.click(on_submit, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox, share_info_checkbox], chatbot).then(lambda: "", None, msg)
         stop.click(stop_gen)
         prompt_helper.click(generate_better_prompt, [msg, personality], [msg])
 
