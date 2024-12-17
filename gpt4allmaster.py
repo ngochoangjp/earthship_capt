@@ -438,7 +438,7 @@ def generate_better_prompt(message, personality_choice):
     ]
 
     try:
-        response = chat_with_model(messages, list(MODEL_DISPLAY_NAMES.keys())[0])  # Use default model
+        response = chat_with_model(messages, list(MODEL_DISPLAY_NAMES.keys())[0], max_tokens=250)  # Use default model
         return response
     except Exception as e:
         logging.error(f"Error in generate_better_prompt: {str(e)}")
@@ -462,7 +462,7 @@ def regenerate_response(chatbot_history, message_index, login_info, personality_
     messages.append({'role': 'user', 'content': user_message})
 
     try:
-        response = chat_with_model(messages, model_choice)
+        response = chat_with_model(messages, model_choice, max_tokens=250)
         chatbot_history[message_index][1] = response
         username = login_info["username"]
         chat_id = current_chat_id.value
@@ -538,13 +538,13 @@ def web_search_and_scrape(query, personality, links):
     else:
         return "Không tìm thấy thông tin liên quan.", []
 
-def chat_with_model(messages, model_choice):
+def chat_with_model(messages, model_choice, max_tokens=1000):
     """Interacts with the chosen AI model to generate a response."""
     try:
         response_stream = ollama.chat(
             model=MODEL_DISPLAY_NAMES.get(model_choice, model_choice),
             messages=messages,
-            stream=True
+            stream=True,           
         )
         response = ""
         for chunk in response_stream:
@@ -624,7 +624,13 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
         response_stream = ollama.chat(
             model=MODEL_DISPLAY_NAMES.get(ollama_model, ollama_model),
             messages=messages,
-            stream=True
+            stream=True,
+            options={
+                "num_predict": 1000,
+                "temperature": 0.7,
+                "top_k": 40,
+                "top_p": 0.9
+            }
         )
 
         current_response = ""
@@ -819,7 +825,9 @@ def create_user_interface():
                         avatar_images=[None, get_avatar_path(list(PERSONALITIES.keys())[0])],
                         show_copy_button=True,
                         show_share_button=False,
-                        bubble_full_width=False,
+                        bubble_full_width=True,
+                        show_copy_all_button=True,
+                        autoscroll=True,
                     )
 
                     with gr.Row():
@@ -830,6 +838,7 @@ def create_user_interface():
                                 elem_id="msg",
                                 container=True,
                                 show_copy_button=True,
+                                max_length=1000,
                             )
                             prompt_helper = gr.Button("💡", elem_classes="action-button", visible=True)
                         with gr.Column(scale=1):
