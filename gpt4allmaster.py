@@ -4,7 +4,6 @@ import json
 import base64
 import random
 import logging
-import time
 from pathlib import Path
 import gradio as gr
 import ollama
@@ -12,6 +11,7 @@ from datetime import datetime
 import tiktoken
 import requests
 from bs4 import BeautifulSoup
+import time
 
 # ************************************************************************
 # *                         Logging Configuration                        *
@@ -419,22 +419,22 @@ def load_profile_info(login_info):
 # ************************************************************************
 
 def generate_better_prompt(message, personality_choice):
-    """Generates suggestions for improving a prompt using the AI model."""
+    """Gợi ý cách cải thiện câu lệnh (prompt) bằng cách sử dụng mô hình AI."""
     if not message.strip():
         return "Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý"
 
-    system_message = """You are a helpful AI assistant. Your task is to analyze the given input text and suggest ways to improve it as a prompt. 
-    Consider the following aspects:
-    1. Clarity and specificity
-    2. Context and background information
-    3. Desired output format
-    4. Constraints or requirements
+    system_message = """Bạn là một trợ lý AI hữu ích. Nhiệm vụ của bạn là phân tích văn bản đầu vào đã cho và đề xuất các cách để cải thiện nó thành một câu lệnh (prompt) hoàn chỉnh hơn. 
+    Hãy xem xét các khía cạnh sau:
+    1. Rõ ràng và cụ thể
+    2. Bối cảnh và thông tin nền
+    3. Định dạng đầu ra mong muốn
+    4. Các ràng buộc hoặc yêu cầu
 
-    Provide specific suggestions based on the input text."""
+    Cung cấp các đề xuất cụ thể dựa trên văn bản đầu vào."""
 
     messages = [
         {'role': 'system', 'content': system_message},
-        {'role': 'user', 'content': f"Please help me improve this prompt: {message}"}
+        {'role': 'user', 'content': f"Hãy giúp tôi cải thiện câu lệnh này: {message}"}
     ]
 
     try:
@@ -462,7 +462,7 @@ def regenerate_response(chatbot_history, message_index, login_info, personality_
     messages.append({'role': 'user', 'content': user_message})
 
     try:
-        response = chat_with_model(messages, model_choice, max_tokens=250)
+        response = chat_with_model(messages, model_choice, max_tokens=700)
         chatbot_history[message_index][1] = response
         username = login_info["username"]
         chat_id = current_chat_id.value
@@ -538,7 +538,7 @@ def web_search_and_scrape(query, personality, links):
     else:
         return "Không tìm thấy thông tin liên quan.", []
 
-def chat_with_model(messages, model_choice, max_tokens=1000):
+def chat_with_model(messages, model_choice, max_tokens=700):
     """Interacts with the chosen AI model to generate a response."""
     try:
         response_stream = ollama.chat(
@@ -555,7 +555,7 @@ def chat_with_model(messages, model_choice, max_tokens=1000):
         logging.error(f"Error in chat_with_model: {str(e)}")
         return "Xin lỗi, đã có lỗi xảy ra khi giao tiếp với mô hình AI."
 
-def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox, delay=0, initial_delay=2.0):
+def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox):
     """Streams the response from Ollama word by word."""
     global stop_generation
     stop_generation = False
@@ -573,9 +573,6 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
         return
     
     try:
-        # Add initial delay before starting to respond
-        time.sleep(initial_delay)
-        
         response = ""
         personality_data = PERSONALITIES.get(personality)
         personality_prompt = personality_data.get("system", "") if personality_data else ""
@@ -598,12 +595,7 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
 
         # Add user profile information if allowed
         if share_info_checkbox:
-            try:
-                user_data = load_user_data(login_info["username"])
-                if user_data:
-                    personality_prompt += f"\n\nUser Profile Information:\n{format_user_info(user_data)}"
-            except Exception as e:
-                logging.error(f"Error loading user data: {str(e)}")
+            user_data = load_user_data(login_info["username"])
 
         # Skip personality prompt for certain personalities
         skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
@@ -647,7 +639,6 @@ def stream_chat(message, history, login_info, personality, ollama_model, current
                 break
             if 'message' in chunk and 'content' in chunk['message']:
                 response_chunk = chunk['message']['content']
-                time.sleep(delay)  # Delay between chunks
                 current_response += response_chunk
                 new_history = history[:-1] + [[message, current_response]]
                 yield new_history
@@ -849,7 +840,7 @@ def create_user_interface():
                                 show_copy_button=True,
                                 max_length=1000,
                             )
-                            prompt_helper = gr.Button("💡", elem_classes="action-button", visible=True)
+                            prompt_helper = gr.Button("💡Cải thiện nội dung", elem_classes="action-button", visible=True)
                         with gr.Column(scale=1):
                             send = gr.Button("Gửi", variant="primary")
                             stop = gr.Button("Dừng tạo câu trả lời")
@@ -888,31 +879,19 @@ def create_user_interface():
         password_input.submit(lambda pwd, info: ([gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)] if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]), [password_input, login_info], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error])
 
         # --- Chat and Input ---
-        def on_submit(message, history, login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox):
-            if not message:
-                return history
+        def on_submit(message, history, login_info, current_chat_id, personality_choice, model_choice, use_internet):
             history = history or []
             history.append([message, None])
             try:
-                for new_history in stream_chat(
-                    message, 
-                    history[:-1], 
-                    login_info, 
-                    personality_choice, 
-                    model_choice, 
-                    current_chat_id, 
-                    use_internet, 
-                    share_info_checkbox if share_info_checkbox is not None else False,
-                    delay=0.03,
-                    initial_delay=2.0
-                ):
+                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox.value):
                     yield new_history
             except Exception as e:
                 logging.error(f"Error in on_submit: {str(e)}")
+                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])
                 yield history
 
-        msg.submit(on_submit, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox, share_info_checkbox], chatbot).then(lambda: "", None, msg)
-        send.click(on_submit, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox, share_info_checkbox], chatbot).then(lambda: "", None, msg)
+        msg.submit(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
+        send.click(on_submit, [msg, chatbot, login_info, current_chat_id, personality, model, use_internet_checkbox], chatbot).then(lambda: "", None, msg)
         stop.click(stop_gen)
         prompt_helper.click(generate_better_prompt, [msg, personality], [msg])
 
