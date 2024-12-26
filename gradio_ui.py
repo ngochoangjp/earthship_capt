@@ -135,9 +135,6 @@ def create_user_interface():
         login_info = gr.State(value={"username": "", "password": "", "logged_in": False, "is_admin": False})
         current_chat_id = gr.State()
         selected_user = gr.State(value="0")
-        
-        # Global Checkbox for sharing info
-        share_info_checkbox = gr.Checkbox(label="Cho phép AI truy cập thông tin cá nhân", value=True, interactive=True)
 
         # Components
         user_avatar = gr.Image(label="User Avatar", type="filepath", visible=False)
@@ -259,7 +256,7 @@ def create_user_interface():
             history = history or []
             history.append([message, None])
             try:
-                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet, share_info_checkbox.value):
+                for new_history in stream_chat(message, history[:-1], login_info, personality_choice, model_choice, current_chat_id, use_internet):
                     yield new_history
             except Exception as e:
                 logging.error(f"Error in on_submit: {str(e)}")
