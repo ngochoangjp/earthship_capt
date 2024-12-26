@@ -70,6 +70,14 @@
         "documentation": {}
     },
     {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
         "label": "gradio",
         "kind": 6,
         "isExtraImport": true,
@@ -85,6 +93,14 @@
         "importPath": "ollama",
         "description": "ollama",
         "detail": "ollama",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
         "documentation": {}
     },
     {
@@ -146,12 +162,29 @@
         "documentation": {}
     },
     {
+        "label": "BeautifulSoup",
+        "importPath": "bs4",
+        "description": "bs4",
+        "isExtraImport": true,
+        "detail": "bs4",
+        "documentation": {}
+    },
+    {
         "label": "time",
         "kind": 6,
         "isExtraImport": true,
         "importPath": "time",
         "description": "time",
         "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "google.generativeai",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "google.generativeai",
+        "description": "google.generativeai",
+        "detail": "google.generativeai",
         "documentation": {}
     },
     {
@@ -743,6 +776,258 @@
         "description": "Backup",
         "peekOfCode": "AVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in {\n        \"Tuanpham/t-visstar-7b:latest\",\n        \"marco-o1\",\n        \"llama2\",\n        \"codellama\"\n    }\n}\n# ************************************************************************\n# *                      Helper Functions                                *",
         "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "get_google_api_key",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def get_google_api_key():\n    \"\"\"\n    Retrieve Google API key with multiple fallback methods.\n    Priority:\n    1. Environment variable\n    2. API_KEY.txt file\n    3. Raise an error if no key is found\n    \"\"\"\n    # Check environment variable first\n    env_key = os.environ.get(\"GOOGLE_API_KEY\")",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "load_prompts",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def load_prompts(file_path):\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)  # Execute the code in a local namespace\n    return local_vars.get('EXAMPLE_RESPONSES'), local_vars.get('PERSONALITIES'), local_vars.get('PREMADE_PROMPTS')\n# Load the prompts from prompts.txt\nprompts_file_path = 'prompts.txt'  # Changed the path to a relative path\n# Initialize global variables\nEXAMPLE_RESPONSES = {}",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "load_global_prompts",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def load_global_prompts():\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:\n        logging.error(f\"Error loading prompts: {e}\")\n        PERSONALITIES[\"Trợ lý\"] = {\n            \"system\": \"Bạn là một trợ lý AI hữu ích.\",\n            \"links\": [\"https://vi.wikipedia.org\", \"https://www.google.com.vn\"]\n        }",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "get_all_usernames",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def get_all_usernames():\n    \"\"\"Gets a list of all registered usernames.\"\"\"\n    usernames = []\n    for filename in os.listdir(USER_DATA_FOLDER):\n        if os.path.isdir(os.path.join(USER_DATA_FOLDER, filename)):\n            usernames.append(filename)\n    return usernames\ndef get_chat_titles(username):\n    \"\"\"Gets the titles of all chats for a user.\"\"\"\n    user_data = load_user_data(username)",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "get_chat_titles",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def get_chat_titles(username):\n    \"\"\"Gets the titles of all chats for a user.\"\"\"\n    user_data = load_user_data(username)\n    if user_data:\n        chat_titles = [\n            (user_data.get(f\"title_{chat_id}\", f\"Chat {chat_id}\"), chat_id)\n            for chat_id in user_data.get(\"chat_history\", {})\n        ]\n        return chat_titles\n    return []",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "format_user_info",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def format_user_info(profile):\n    \"\"\"Format user profile information into a readable string.\"\"\"\n    if not profile:\n        return \"\"\n    formatted_info = []\n    for key, value in profile.items():\n        if value and key != \"password\":  # Skip empty values and password\n            formatted_key = key.replace(\"_\", \" \").title()\n            formatted_info.append(f\"{formatted_key}: {value}\")\n    return \"\\n\".join(formatted_info)",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "estimate_tokens",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def estimate_tokens(text):\n    \"\"\"Estimates the number of tokens in a text string.\"\"\"\n    encoding = tiktoken.encoding_for_model(\"gpt-3.5-turbo\")  # Use a general-purpose model for estimation\n    return len(encoding.encode(text))\n# ************************************************************************\n# *            Function to Update Existing User Data                    *\n# ************************************************************************\ndef update_existing_user_data():\n    for filename in os.listdir(USER_DATA_FOLDER):\n        if filename.endswith(\".json\"):",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "update_existing_user_data",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def update_existing_user_data():\n    for filename in os.listdir(USER_DATA_FOLDER):\n        if filename.endswith(\".json\"):\n            filepath = os.path.join(USER_DATA_FOLDER, filename)\n            try:\n                with open(filepath, \"r\", encoding=\"utf-8\") as f:\n                    user_data = json.load(f)\n                # Convert chat_history to dictionary if it's a list\n                if \"chat_history\" in user_data and isinstance(user_data[\"chat_history\"], list):\n                    new_chat_history = {}",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "web_search_and_scrape",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def web_search_and_scrape(query, personality, links):\n    return \"Web search is disabled for debugging purposes.\", []\n# ************************************************************************\n# *                    Save User Data Function                         *\n# ************************************************************************\ndef save_user_data(username, data):\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    os.makedirs(user_folder, exist_ok=True)  # Create user folder if it doesn't exist\n    file_path = os.path.join(user_folder, \"user_data.json\")\n    try:",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "save_user_data",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def save_user_data(username, data):\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    os.makedirs(user_folder, exist_ok=True)  # Create user folder if it doesn't exist\n    file_path = os.path.join(user_folder, \"user_data.json\")\n    try:\n        with open(file_path, 'w', encoding='utf-8') as f:\n            json.dump(data, f, ensure_ascii=False, indent=2)\n    except Exception as e:\n        logging.error(f\"Error in save_user_data: {e}\")\n# ************************************************************************",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "load_user_data",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def load_user_data(username):\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    file_path = os.path.join(user_folder, \"user_data.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r', encoding='utf-8') as f:\n            data = json.load(f)\n        return data\n    return None\n# ************************************************************************\n# *                  Save Chat History Function                        *",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "save_chat_history",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def save_chat_history(username, chat_id, chat_history):\n    \"\"\"Saves a chat session to a separate file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    chat_file_path = os.path.join(user_folder, f\"chat_{chat_id}.json\")\n    try:\n        with open(chat_file_path, 'w', encoding='utf-8') as f:\n            json.dump(chat_history, f, ensure_ascii=False, indent=2)\n    except Exception as e:\n        logging.error(f\"Error in save_chat_history: {e}\")\n# ************************************************************************",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "load_chat_history",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def load_chat_history(username, chat_id):\n    \"\"\"Loads a chat session from its file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    chat_file_path = os.path.join(user_folder, f\"chat_{chat_id}.json\")\n    if os.path.exists(chat_file_path):\n        with open(chat_file_path, 'r', encoding='utf-8') as f:\n            return json.load(f)\n    return None\n# ************************************************************************\n# *                    Create New User Function                        *",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "create_new_user",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def create_new_user(username, password):\n    if not username or not password:\n        return (\n            gr.update(visible=True),\n            gr.update(visible=False),\n            {\"username\": \"\", \"password\": \"\", \"logged_in\": False, \"is_admin\": False},\n            [],\n            None,\n            None,\n            gr.update(visible=True, value=\"Vui lòng nhập tên đăng nhập và mật khẩu.\"),",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "create_user_interface",
+        "kind": 2,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "def create_user_interface():\n    # Ensure prompts are loaded\n    if not PERSONALITIES:\n        load_global_prompts()\n    personality_choices = list(PERSONALITIES.keys())\n    model_choices = list(MODEL_DISPLAY_NAMES.keys())\n    with gr.Blocks(css=custom_css) as user_interface:\n        gr.Markdown(\"# Earthship AI\")\n        # Initialize user data directory if it doesn't exist\n        os.makedirs(USER_DATA_FOLDER, exist_ok=True)",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "USER_DATA_FOLDER",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "USER_DATA_FOLDER = \"userdata\"\nPERSONALITIES = {}\nEXAMPLE_RESPONSES = {}\n# Create user data folder if it doesn't exist\nif not os.path.exists(USER_DATA_FOLDER):\n    os.makedirs(USER_DATA_FOLDER)\n# --- Rest of your code (e.g., loading models, handling interactions) ---\n# ************************************************************************\n# *                         Import prompts                        *\n# ************************************************************************",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "PERSONALITIES",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "PERSONALITIES = {}\nEXAMPLE_RESPONSES = {}\n# Create user data folder if it doesn't exist\nif not os.path.exists(USER_DATA_FOLDER):\n    os.makedirs(USER_DATA_FOLDER)\n# --- Rest of your code (e.g., loading models, handling interactions) ---\n# ************************************************************************\n# *                         Import prompts                        *\n# ************************************************************************\ndef load_prompts(file_path):",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "EXAMPLE_RESPONSES",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "EXAMPLE_RESPONSES = {}\n# Create user data folder if it doesn't exist\nif not os.path.exists(USER_DATA_FOLDER):\n    os.makedirs(USER_DATA_FOLDER)\n# --- Rest of your code (e.g., loading models, handling interactions) ---\n# ************************************************************************\n# *                         Import prompts                        *\n# ************************************************************************\ndef load_prompts(file_path):\n    with open(file_path, 'r', encoding='utf-8') as file:",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "prompts_file_path",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "prompts_file_path = 'prompts.txt'  # Changed the path to a relative path\n# Initialize global variables\nEXAMPLE_RESPONSES = {}\nPERSONALITIES = {}\nPREMADE_PROMPTS = {}\ndef load_global_prompts():\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "EXAMPLE_RESPONSES",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "EXAMPLE_RESPONSES = {}\nPERSONALITIES = {}\nPREMADE_PROMPTS = {}\ndef load_global_prompts():\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:\n        logging.error(f\"Error loading prompts: {e}\")\n        PERSONALITIES[\"Trợ lý\"] = {",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "PERSONALITIES",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "PERSONALITIES = {}\nPREMADE_PROMPTS = {}\ndef load_global_prompts():\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:\n        logging.error(f\"Error loading prompts: {e}\")\n        PERSONALITIES[\"Trợ lý\"] = {\n            \"system\": \"Bạn là một trợ lý AI hữu ích.\",",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "PREMADE_PROMPTS",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "PREMADE_PROMPTS = {}\ndef load_global_prompts():\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:\n        logging.error(f\"Error loading prompts: {e}\")\n        PERSONALITIES[\"Trợ lý\"] = {\n            \"system\": \"Bạn là một trợ lý AI hữu ích.\",\n            \"links\": [\"https://vi.wikipedia.org\", \"https://www.google.com.vn\"]",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_PASSWORD",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "DEFAULT_PASSWORD = \"admin\"\n# Available Gemini Models\nMODEL_DISPLAY_NAMES = {\n    \"Gemini Pro\": \"gemini-pro\",\n    # Add other Gemini models if needed\n}\n# Technical model names for Gemini\nAVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in MODEL_DISPLAY_NAMES.values()\n}",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "MODEL_DISPLAY_NAMES",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "MODEL_DISPLAY_NAMES = {\n    \"Gemini Pro\": \"gemini-pro\",\n    # Add other Gemini models if needed\n}\n# Technical model names for Gemini\nAVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in MODEL_DISPLAY_NAMES.values()\n}\n# Folder to store user data\nUSER_DATA_FOLDER = \"userdata\"",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "AVAILABLE_MODELS",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "AVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in MODEL_DISPLAY_NAMES.values()\n}\n# Folder to store user data\nUSER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\n# ************************************************************************\n# *                  Helper Functions (New)                              *\n# ************************************************************************\ndef get_all_usernames():",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "USER_DATA_FOLDER",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "USER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\n# ************************************************************************\n# *                  Helper Functions (New)                              *\n# ************************************************************************\ndef get_all_usernames():\n    \"\"\"Gets a list of all registered usernames.\"\"\"\n    usernames = []\n    for filename in os.listdir(USER_DATA_FOLDER):\n        if os.path.isdir(os.path.join(USER_DATA_FOLDER, filename)):",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "custom_css",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "custom_css = \"\"\"\n.message {\n    padding: 10px;\n    margin: 5px;\n    border-radius: 10px;\n}\n.user-message {\n    background-color: #e3f2fd;\n    text-align: right;\n}",
+        "detail": "Geminitautraidat",
+        "documentation": {}
+    },
+    {
+        "label": "user_interface",
+        "kind": 5,
+        "importPath": "Geminitautraidat",
+        "description": "Geminitautraidat",
+        "peekOfCode": "user_interface = create_user_interface()\nuser_interface.launch(\n    server_name=\"127.0.0.1\",\n    server_port=7871,\n    share=False,\n)",
+        "detail": "Geminitautraidat",
         "documentation": {}
     },
     {

@@ -21,42 +21,53 @@ import google.generativeai as genai
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Secure API key retrieval
+def get_google_api_key():
+    """
+    Retrieve Google API key with multiple fallback methods.
+    
+    Priority:
+    1. Environment variable
+    2. API_KEY.txt file
+    3. Raise an error if no key is found
+    """
+    # Check environment variable first
+    env_key = os.environ.get("GOOGLE_API_KEY")
+    if env_key and env_key.startswith("AIza"):
+        return env_key
+
+    # Check API_KEY.txt file
+    try:
+        with open("API_KEY.txt", "r") as f:
+            file_content = f.read().strip()
+            # Extract the first AIza key
+            match = re.search(r'(AIza[a-zA-Z0-9_-]+)', file_content)
+            if match:
+                return match.group(1)
+    except FileNotFoundError:
+        logging.warning("API_KEY.txt file not found.")
+    except Exception as e:
+        logging.error(f"Error reading API_KEY.txt: {e}")
+
+    # If no key is found, raise a descriptive error
+    raise ValueError(
+        "No valid Google AI API key found. "
+        "Please set GOOGLE_API_KEY environment variable or "
+        "add a valid key to API_KEY.txt"
+    )
+
+# Safely configure Gemini API
+try:
+    GOOGLE_API_KEY = get_google_api_key()
+    genai.configure(api_key=GOOGLE_API_KEY)
+except ValueError as e:
+    logging.critical(str(e))
+    sys.exit(1)
+
 # Initialize global variables
 USER_DATA_FOLDER = "userdata"
 PERSONALITIES = {}
 EXAMPLE_RESPONSES = {}
-
-# Function to read API key from a file
-def get_api_key_from_file(filepath="API_KEY.txt"):
-    """Reads the API key from a file.
-
-    Args:
-        filepath: The path to the file containing the API key.
-
-    Returns:
-        The API key as a string, or None if the file does not exist or is empty.
-    """
-    try:
-        with open(filepath, "r") as f:
-            api_key = f.read().strip()
-        if not api_key:
-            logging.warning(f"API key file '{filepath}' is empty.")
-            return None
-        return api_key
-    except FileNotFoundError:
-        logging.warning(f"API key file '{filepath}' not found.")
-        return None
-
-# Configure Gemini API
-GOOGLE_API_KEY = get_api_key_from_file()
-
-if not GOOGLE_API_KEY:
-    GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not GOOGLE_API_KEY:
-    raise ValueError("No API key found for Google AI. Please set the GOOGLE_API_KEY environment variable or create an API_KEY.txt file.")
-
-genai.configure(api_key=GOOGLE_API_KEY)
 
 # Create user data folder if it doesn't exist
 if not os.path.exists(USER_DATA_FOLDER):
@@ -212,72 +223,8 @@ def update_existing_user_data():
 update_existing_user_data()
 
 # ************************************************************************
-# *               Web Search and Scrape Function                        *
-# ************************************************************************
-
 def web_search_and_scrape(query, personality, links):
-    """
-    Searches the web and specific links based on the query and personality,
-    scrapes the content of the top results, and returns a summarized response
-    along with reference links.
-    """
-    search_results = []
-    reference_links = set()
-
-    # Search specific links provided
-    if links:
-        for link in links:
-            try:
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(link + "/search?q=" + query, headers=headers)
-                response.raise_for_status()
-
-                soup = BeautifulSoup(response.content, 'html.parser')
-                # Extract titles and snippets - adapt selectors as needed based on website structure
-                results = soup.find_all('div', class_='search-result', limit=2)  # Example selector
-                for result in results:
-                    title_elem = result.find('h3')
-                    snippet_elem = result.find('p')
-                    
-                    title = title_elem.text if title_elem else "No title"
-                    snippet = snippet_elem.text if snippet_elem else "No snippet"
-                    
-                    search_results.append(f"{title}: {snippet}")
-                    reference_links.add(link)
-            except Exception as e:
-                logging.error(f"Error searching link {link}: {e}")
-                continue
-
-    # General web search using DuckDuckGo if no specific results or if personality requires it
-    if not search_results or personality == "Uncensored AI":
-        try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(f"https://duckduckgo.com/html/?q={query}", headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.content, 'html.parser')
-            # Extract titles, snippets, and links - adapt selectors as needed
-            results = soup.find_all('div', class_='result', limit=3)
-            for result in results:
-                title_elem = result.find('a', class_='result__a')
-                snippet_elem = result.find('a', class_='result__snippet')
-                
-                if title_elem:
-                    title = title_elem.text
-                    link = title_elem.get('href', '')
-                    snippet = snippet_elem.text if snippet_elem else "No snippet"
-                    
-                    search_results.append(f"{title}: {snippet}")
-                    if link:
-                        reference_links.add(link)
-        except Exception as e:
-            logging.error(f"Error during general web search: {e}")
-
-    if search_results:
-        summary = "Thông tin tìm được:\n" + "\n".join(search_results)
-        return summary, list(reference_links)
-    else:
-        return "Không tìm thấy thông tin liên quan.", []
+    return "Web search is disabled for debugging purposes.", []
 
 # ************************************************************************
 # *                    Save User Data Function                         *
