@@ -91,7 +91,7 @@ def create_user_interface():
         .gr-body {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 50vh;
         }
         .gr-main {
             flex: 1;
@@ -111,7 +111,7 @@ def create_user_interface():
             max-width: 100%;
         }
         #chatbot {
-            max-width: 100%;
+            max-width:100%;
         }
         .gr-textbox {
             max-width: 100%;
@@ -165,8 +165,7 @@ def create_user_interface():
             with gr.Row():
                 # --- User Profile ---
                 with gr.Column(scale=1):
-                    gr.Markdown("## Thông tin cá nhân")
-                    gr.Markdown("AI lưu lại thông tin của bạn chỉ để hiểu bạn hơn.")
+                    gr.Markdown("(Để Tàu Trái Đất luôn nhớ bạn)")
                     real_name = gr.Textbox(label="Họ và tên", placeholder="Nhập tên của bạn")
                     age = gr.Number(label="Tuổi")
                     gender = gr.Textbox(label="Giới tính", placeholder="Nhập giới tính của bạn")
@@ -179,7 +178,7 @@ def create_user_interface():
                     personality_text = gr.TextArea(label="Tính cách", placeholder="Mô tả tính cách của bạn")
                     save_profile = gr.Button("Lưu thông tin", variant="primary")
                     hide_profile_button = gr.Button("Ẩn thông tin cá nhân")
-                    show_profile_button = gr.Button("Chỉnh sửa thông tin cá nhân", visible=False)
+                    show_profile_button = gr.Button("Tôi là...", visible=False)
                     password_input = gr.Textbox(label="Nhập mật khẩu", type="password", visible=False)
                     password_error = gr.Markdown(visible=False)
 
@@ -188,7 +187,7 @@ def create_user_interface():
                     personality = gr.Dropdown(choices=list(PERSONALITIES.keys()), value=list(PERSONALITIES.keys())[0], label="Chọn tính cách AI", interactive=True)
                     chatbot = gr.Chatbot(
                         elem_id="chatbot",
-                        height=1000,
+                        height=350,
                         render=True,
                         elem_classes="custom-chatbot",
                         render_markdown=True,
@@ -221,10 +220,8 @@ def create_user_interface():
                     model = gr.Dropdown(choices=list(MODEL_DISPLAY_NAMES.keys()), value=list(MODEL_DISPLAY_NAMES.keys())[0], label="Chọn mô hình AI", interactive=True)
                     use_internet_checkbox = gr.Checkbox(label="Sử dụng Internet để tìm kiếm", value=False)
                     new_chat_button = gr.Button("Bắt đầu cuộc trò chuyện mới")
-                    gr.Markdown("### Thư viện công cụ")
-                    premade_prompt_buttons = [gr.Button(prompt_name) for prompt_name in PREMADE_PROMPTS.keys()]
-                    gr.Markdown("## Lịch sử trò chuyện")
-                    chat_history_dropdown = gr.Dropdown(choices=[], label="Chọn lịch sử trò chuyện", interactive=True)
+                    premade_prompt_dropdown = gr.Dropdown(choices=list(PREMADE_PROMPTS.keys()), label="Thư viện công cụ", interactive=True)
+                    chat_history_dropdown = gr.Dropdown(choices=[], label="Lịch sử trò chuyện", interactive=True)
                     with gr.Row():
                         load_chat_button = gr.Button("Load Chat")
                         rename_chat_button = gr.Button("Rename Chat")
@@ -273,8 +270,7 @@ def create_user_interface():
         personality.change(new_chat, [login_info, personality, model], [chatbot, current_chat_id, chat_history_dropdown])
         personality.change(lambda personality_name: gr.update(avatar_images=[None, get_avatar_path(personality_name)]), [personality], [chatbot])
         chatbot.regenerate = lambda history, idx: regenerate_response(history, idx, login_info, personality.value, model.value)
-        for button, prompt_name in zip(premade_prompt_buttons, PREMADE_PROMPTS.keys()):
-            button.click(add_premade_prompt, [gr.State(prompt_name), msg, chatbot], [msg, chatbot])
+        premade_prompt_dropdown.change(add_premade_prompt, [premade_prompt_dropdown, msg, chatbot], [msg, chatbot])
         load_chat_button.click(load_selected_chat, [login_info, chat_history_dropdown], [chatbot, current_chat_id])
         rename_chat_button.click(lambda: gr.update(visible=True), [], [rename_chat_textbox])
         rename_chat_textbox.submit(rename_chat, [rename_chat_textbox, current_chat_id, login_info], [chat_history_dropdown, rename_chat_textbox])
