@@ -744,6 +744,40 @@ def create_user_interface():
         .avatar-container img {
             pointer-events: none;
         }
+        .gr-body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .gr-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            padding: 10px;
+        }
+        .gr-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .gr-column {
+            flex: 1;
+            min-width: 200px;
+            max-width: 100%;
+        }
+        #chatbot {
+            max-width: 100%;
+        }
+        .gr-textbox {
+            max-width: 100%;
+        }
+        .gr-dropdown {
+            max-width: 100%;
+        }
+        .gr-button {
+            max-width: 100%;
+        }
         """) as user_interface:
         gr.Markdown("# Earthship AI")
 
@@ -872,7 +906,7 @@ def create_user_interface():
         save_profile.click(save_profile_info, [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info], [save_profile, real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, show_profile_button])
         hide_profile_button.click(lambda: ([gr.update(visible=False) for _ in range(11)] + [gr.update(visible=False), gr.update(visible=True)]), [], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, show_profile_button])
         show_profile_button.click(lambda: [gr.update(visible=True), gr.update(visible=True, value="")], None, [password_input, password_error])
-        password_input.submit(lambda pwd, info: ([gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)] if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]), [password_input, login_info], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error])
+        password_input.submit(lambda pwd, info: ([gr.update(visible=True) for _ in range(10)] + [gr.update(visible=True), gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)] if info["logged_in"] and load_user_data(info["username"]).get("password") == pwd else [gr.update(visible=False) for _ in range(10)] + [gr.update(visible=False), gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, value="Incorrect password")]) , [password_input, login_info], [real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, save_profile, hide_profile_button, password_input, password_error])
 
         # --- Chat and Input ---
         def on_submit(message, history, login_info, current_chat_id, personality_choice, model_choice, use_internet):
