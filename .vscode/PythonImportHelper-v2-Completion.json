@@ -9,6 +9,15 @@
         "documentation": {}
     },
     {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
         "label": "json",
         "kind": 6,
         "isExtraImport": true,
@@ -42,6 +51,14 @@
         "importPath": "logging",
         "description": "logging",
         "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
         "documentation": {}
     },
     {
@@ -87,6 +104,14 @@
         "documentation": {}
     },
     {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
         "label": "tiktoken",
         "kind": 6,
         "isExtraImport": true,
@@ -102,6 +127,14 @@
         "importPath": "requests",
         "description": "requests",
         "detail": "requests",
+        "documentation": {}
+    },
+    {
+        "label": "BeautifulSoup",
+        "importPath": "bs4",
+        "description": "bs4",
+        "isExtraImport": true,
+        "detail": "bs4",
         "documentation": {}
     },
     {
@@ -364,6 +397,357 @@
     {
         "label": "load_prompts",
         "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)\n    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})\ndef load_global_prompts():\n    \"\"\"Loads prompts into global variables, handling potential errors.\"\"\"\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_global_prompts",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_global_prompts():\n    \"\"\"Loads prompts into global variables, handling potential errors.\"\"\"\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS\n    try:\n        EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS = load_prompts(prompts_file_path)\n    except Exception as e:\n        logging.error(f\"Error loading prompts: {e}\")\n        # Provide a default personality if loading fails\n        PERSONALITIES[\"Trợ lý\"] = {\n            \"system\": \"Bạn là một trợ lý AI hữu ích.\",",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "get_all_usernames",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def get_all_usernames():\n    \"\"\"Gets a list of all registered usernames.\"\"\"\n    return [name for name in os.listdir(USER_DATA_FOLDER) if os.path.isdir(os.path.join(USER_DATA_FOLDER, name))]\ndef get_chat_titles(username):\n    \"\"\"Gets the titles of all chats for a user.\"\"\"\n    user_data = load_user_data(username)\n    return [(user_data.get(f\"title_{chat_id}\", f\"Chat {chat_id}\"), chat_id) for chat_id in user_data.get(\"chat_history\", {})] if user_data else []\ndef format_user_info(profile):\n    \"\"\"Format user profile information into a readable string.\"\"\"\n    return \"\\n\".join(f\"{key.replace('_', ' ').title()}: {value}\" for key, value in profile.items() if value and key != \"password\") if profile else \"\"",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "get_chat_titles",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def get_chat_titles(username):\n    \"\"\"Gets the titles of all chats for a user.\"\"\"\n    user_data = load_user_data(username)\n    return [(user_data.get(f\"title_{chat_id}\", f\"Chat {chat_id}\"), chat_id) for chat_id in user_data.get(\"chat_history\", {})] if user_data else []\ndef format_user_info(profile):\n    \"\"\"Format user profile information into a readable string.\"\"\"\n    return \"\\n\".join(f\"{key.replace('_', ' ').title()}: {value}\" for key, value in profile.items() if value and key != \"password\") if profile else \"\"\ndef estimate_tokens(text):\n    \"\"\"Estimates the number of tokens in a text string.\"\"\"\n    encoding = tiktoken.encoding_for_model(\"Tuanpham/t-visstar-7b:latest\")  # Assuming this is your primary model",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "format_user_info",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def format_user_info(profile):\n    \"\"\"Format user profile information into a readable string.\"\"\"\n    return \"\\n\".join(f\"{key.replace('_', ' ').title()}: {value}\" for key, value in profile.items() if value and key != \"password\") if profile else \"\"\ndef estimate_tokens(text):\n    \"\"\"Estimates the number of tokens in a text string.\"\"\"\n    encoding = tiktoken.encoding_for_model(\"Tuanpham/t-visstar-7b:latest\")  # Assuming this is your primary model\n    return len(encoding.encode(text))\ndef get_avatar_path(personality_name):\n    \"\"\"Get the avatar path for a given personality\"\"\"\n    return os.path.join(\"icons\", f\"{personality_name.lower().replace(' ', '_')}.png\")",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "estimate_tokens",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def estimate_tokens(text):\n    \"\"\"Estimates the number of tokens in a text string.\"\"\"\n    encoding = tiktoken.encoding_for_model(\"Tuanpham/t-visstar-7b:latest\")  # Assuming this is your primary model\n    return len(encoding.encode(text))\ndef get_avatar_path(personality_name):\n    \"\"\"Get the avatar path for a given personality\"\"\"\n    return os.path.join(\"icons\", f\"{personality_name.lower().replace(' ', '_')}.png\")\n# ************************************************************************\n# *                    Data Management Functions                         *\n# ************************************************************************",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "get_avatar_path",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def get_avatar_path(personality_name):\n    \"\"\"Get the avatar path for a given personality\"\"\"\n    return os.path.join(\"icons\", f\"{personality_name.lower().replace(' ', '_')}.png\")\n# ************************************************************************\n# *                    Data Management Functions                         *\n# ************************************************************************\ndef save_user_data(username, data):\n    \"\"\"Saves user data to a JSON file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    os.makedirs(user_folder, exist_ok=True)",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "save_user_data",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def save_user_data(username, data):\n    \"\"\"Saves user data to a JSON file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    os.makedirs(user_folder, exist_ok=True)\n    file_path = os.path.join(user_folder, \"user_data.json\")\n    try:\n        with open(file_path, 'w', encoding='utf-8') as f:\n            json.dump(data, f, ensure_ascii=False, indent=2)\n    except Exception as e:\n        logging.error(f\"Error saving user data for {username}: {e}\")",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_user_data",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_user_data(username):\n    \"\"\"Loads user data from a JSON file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    file_path = os.path.join(user_folder, \"user_data.json\")\n    if os.path.exists(file_path):\n        with open(file_path, 'r', encoding='utf-8') as f:\n            return json.load(f)\n    return None\ndef save_chat_history(username, chat_id, chat_history):\n    \"\"\"Saves a chat session to a separate file.\"\"\"",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "save_chat_history",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def save_chat_history(username, chat_id, chat_history):\n    \"\"\"Saves a chat session to a separate file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    chat_file_path = os.path.join(user_folder, f\"chat_{chat_id}.json\")\n    try:\n        with open(chat_file_path, 'w', encoding='utf-8') as f:\n            json.dump(chat_history, f, ensure_ascii=False, indent=2)\n    except Exception as e:\n        logging.error(f\"Error saving chat history for {username}, chat ID {chat_id}: {e}\")\ndef load_chat_history(username, chat_id):",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_chat_history",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_chat_history(username, chat_id):\n    \"\"\"Loads a chat session from its file.\"\"\"\n    user_folder = os.path.join(USER_DATA_FOLDER, username)\n    chat_file_path = os.path.join(user_folder, f\"chat_{chat_id}.json\")\n    if os.path.exists(chat_file_path):\n        with open(chat_file_path, 'r', encoding='utf-8') as f:\n            return json.load(f)\n    return None\n# ************************************************************************\n# *                   User and Session Management                       *",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "create_new_user",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def create_new_user(username, password):\n    \"\"\"Creates a new user with default settings.\"\"\"\n    if not username or not password:\n        return error_response(\"Vui lòng nhập tên đăng nhập và mật khẩu.\")\n    if load_user_data(username):\n        return error_response(\"Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.\")\n    new_user_data = {\n        \"password\": password,\n        \"chat_history\": {},\n        \"next_chat_id\": 0,",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "login",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def login(username, password):\n    \"\"\"Handles user login, sets up session, and loads user data.\"\"\"\n    if not username or not password:\n        return error_response(\"Vui lòng nhập tên đăng nhập và mật khẩu.\")\n    user_data = load_user_data(username)\n    if not user_data or user_data.get(\"password\") != password:\n        return error_response(\"Tên đăng nhập hoặc mật khẩu không đúng.\")\n    # Successful login\n    return success_response(username, password)\ndef error_response(message):",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "error_response",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def error_response(message):\n    \"\"\"Generates a response for login or user creation errors.\"\"\"\n    return [\n        gr.update(visible=True),  # login_group\n        gr.update(visible=False),  # chat_group\n        {\"username\": \"\", \"password\": \"\", \"logged_in\": False, \"is_admin\": False},  # login_info\n        [],  # chatbot\n        None,  # current_chat_id\n        None,  # personality\n        message,  # login_message",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "success_response",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def success_response(username, password):\n    \"\"\"Generates a response for successful login or user creation.\"\"\"\n    user_data = load_user_data(username)\n    profile_data = user_data.get(\"profile\", {})\n    chat_titles = get_chat_titles(username)\n    # Set default titles for chats that don't have one\n    for chat_id in user_data.get(\"chat_history\", {}):\n        if f\"title_{chat_id}\" not in user_data:\n            user_data[f\"title_{chat_id}\"] = f\"Chat {chat_id}\"\n    save_user_data(username, user_data)",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "new_chat",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def new_chat(login_info, personality_choice, model_choice):\n    \"\"\"Starts a new chat session.\"\"\"\n    if not login_info[\"logged_in\"]:\n        return [], None, gr.update(choices=[])\n    username = login_info[\"username\"]\n    user_data = load_user_data(username) or {\"next_chat_id\": 1, \"chat_history\": {\"1\": []}, \"settings\": {}}\n    new_chat_id = str(user_data[\"next_chat_id\"])\n    user_data[\"next_chat_id\"] += 1\n    user_data[\"chat_history\"][new_chat_id] = []\n    timestamp = datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_selected_chat",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_selected_chat(login_info, chat_id):\n    \"\"\"Loads a selected chat session.\"\"\"\n    if not login_info[\"logged_in\"] or not chat_id:\n        return [], None\n    username = login_info[\"username\"]\n    chat_history = load_chat_history(username, chat_id)\n    if chat_history is None:\n        logging.warning(f\"Chat history not found for chat ID {chat_id}\")\n        return [], chat_id\n    return chat_history, chat_id",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "add_premade_prompt",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def add_premade_prompt(prompt_name, current_msg, history):\n    \"\"\"Adds a premade prompt to the chat history.\"\"\"\n    new_history = list(history or [])\n    new_history.append([prompt_name, None])\n    return \"\", new_history\ndef rename_chat(new_name, chat_id, login_info):\n    \"\"\"Renames a chat session.\"\"\"\n    if not login_info[\"logged_in\"] or not chat_id or not new_name:\n        return gr.update(choices=get_chat_titles(login_info[\"username\"])), gr.update(visible=False)\n    username = login_info[\"username\"]",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "rename_chat",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def rename_chat(new_name, chat_id, login_info):\n    \"\"\"Renames a chat session.\"\"\"\n    if not login_info[\"logged_in\"] or not chat_id or not new_name:\n        return gr.update(choices=get_chat_titles(login_info[\"username\"])), gr.update(visible=False)\n    username = login_info[\"username\"]\n    user_data = load_user_data(username)\n    if user_data and chat_id in user_data.get(\"chat_history\", {}):\n        user_data[f\"title_{chat_id}\"] = new_name\n        save_user_data(username, user_data)\n        chat_titles = get_chat_titles(username)",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "save_profile_info",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def save_profile_info(real_name, age, gender, height, weight, job, muscle_percentage, passion, vegan_checkbox, personality_text, login_info):\n    \"\"\"Saves the user's profile information.\"\"\"\n    if not login_info.get(\"logged_in\", False):\n        return\n    try:\n        height = float(height) if height else None\n        weight = float(weight) if weight else None\n        age = int(age) if age else None\n    except (ValueError, TypeError):\n        height = None",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_profile_info",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def load_profile_info(login_info):\n    \"\"\"Loads and displays the user's profile information.\"\"\"\n    if not login_info[\"logged_in\"]:\n        return [gr.update(value=\"\") for _ in range(10)] + [gr.update(), gr.update()]\n    username = login_info[\"username\"]\n    user_data = load_user_data(username)\n    if user_data and \"profile\" in user_data:\n        profile = user_data[\"profile\"]\n        # Convert numeric values to strings\n        height = str(profile.get('height', '')) if profile.get('height') is not None else ''",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "generate_better_prompt",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def generate_better_prompt(message, personality_choice):\n    \"\"\"Gợi ý cách cải thiện câu lệnh (prompt) bằng cách sử dụng mô hình AI.\"\"\"\n    if not message.strip():\n        return \"Vui lòng nhập nội dung trước khi sử dụng công cụ gợi ý\"\n    system_message = \"\"\"Bạn là một trợ lý AI hữu ích. Nhiệm vụ của bạn là phân tích văn bản đầu vào đã cho và đề xuất các cách để cải thiện nó thành một câu lệnh (prompt) hoàn chỉnh hơn. \n    Hãy xem xét các khía cạnh sau:\n    1. Rõ ràng và cụ thể\n    2. Bối cảnh và thông tin nền\n    3. Định dạng đầu ra mong muốn\n    4. Các ràng buộc hoặc yêu cầu",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "regenerate_response",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def regenerate_response(chatbot_history, message_index, login_info, personality_choice, model_choice):\n    \"\"\"Regenerates a response for a specific message in the chat history.\"\"\"\n    if not chatbot_history or message_index >= len(chatbot_history) or not login_info[\"logged_in\"]:\n        return chatbot_history\n    user_message = chatbot_history[message_index][0]\n    personality_data = PERSONALITIES.get(personality_choice, {})\n    personality_prompt = personality_data.get(\"system\", \"\")\n    messages = [{'role': 'system', 'content': personality_prompt}]\n    for i in range(message_index):\n        if chatbot_history[i][0]:",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "web_search_and_scrape",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def web_search_and_scrape(query, personality, links):\n    \"\"\"\n    Searches the web and specific links based on the query and personality,\n    scrapes the content of the top results, and returns a summarized response\n    along with reference links.\n    \"\"\"\n    search_results = []\n    reference_links = set()\n    # Search specific links provided\n    if links:",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "chat_with_model",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def chat_with_model(messages, model_choice, max_tokens=700):\n    \"\"\"Interacts with the chosen AI model to generate a response.\"\"\"\n    try:\n        response_stream = ollama.chat(\n            model=MODEL_DISPLAY_NAMES.get(model_choice, model_choice),\n            messages=messages,\n            stream=True,           \n        )\n        response = \"\"\n        for chunk in response_stream:",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "stream_chat",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet, share_info_checkbox):\n    \"\"\"Streams the response from Ollama word by word.\"\"\"\n    global stop_generation\n    stop_generation = False\n    current_chat_id = str(current_chat_id)\n    if not login_info.get(\"logged_in\", False):\n        yield []\n        return\n    history = history or []\n    history.append([message, None])",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "stop_gen",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def stop_gen():\n    \"\"\"Stops the generation of the current response.\"\"\"\n    global stop_generation\n    stop_generation = True\n# ************************************************************************\n# *                     Admin Panel Functions                           *\n# ************************************************************************\ndef update_admin_view(selected_user):\n    \"\"\"Updates the admin view with the selected user's chat history.\"\"\"\n    if selected_user:",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "update_admin_view",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def update_admin_view(selected_user):\n    \"\"\"Updates the admin view with the selected user's chat history.\"\"\"\n    if selected_user:\n        user_data = load_user_data(selected_user)\n        if user_data:  # Check if user_data is not None\n            admin_chat_history = []\n            for chat_id, chat in user_data.get(\"chat_history\", {}).items():\n                for msg in chat:\n                    admin_chat_history.append(msg)\n            return admin_chat_history",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "show_all_chats",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def show_all_chats():\n    \"\"\"Displays all chat histories for all users.\"\"\"\n    all_chats_history = []\n    for user_file in os.listdir(USER_DATA_FOLDER):\n        if os.path.isdir(os.path.join(USER_DATA_FOLDER, user_file)):\n            username = user_file\n            user_data = load_user_data(username)\n            all_chats_history.append([None, f\"=== Chat History for {username} ===\"])\n            for chat_id, chat in user_data.get(\"chat_history\", {}).items():\n                for msg in chat:",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "refresh_users",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def refresh_users():\n    \"\"\"Refreshes the list of users in the admin panel.\"\"\"\n    user_files = os.listdir(USER_DATA_FOLDER)\n    user_names = [f for f in user_files if os.path.isdir(os.path.join(USER_DATA_FOLDER, f))]\n    return gr.update(choices=user_names)\n# ************************************************************************\n# *                     Gradio Interface                               *\n# ************************************************************************\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "create_user_interface",
+        "kind": 2,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "def create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;\n            gap: 10px;\n        }",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_PASSWORD",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "DEFAULT_PASSWORD = \"admin\"\nUSER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\n# ************************************************************************\n# *                         Prompt Management                            *\n# ************************************************************************\nEXAMPLE_RESPONSES = {}\nPERSONALITIES = {}\nPREMADE_PROMPTS = {}\nprompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "USER_DATA_FOLDER",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "USER_DATA_FOLDER = \"userdata\"\nos.makedirs(USER_DATA_FOLDER, exist_ok=True)\n# ************************************************************************\n# *                         Prompt Management                            *\n# ************************************************************************\nEXAMPLE_RESPONSES = {}\nPERSONALITIES = {}\nPREMADE_PROMPTS = {}\nprompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file\ndef load_prompts(file_path):",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "EXAMPLE_RESPONSES",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "EXAMPLE_RESPONSES = {}\nPERSONALITIES = {}\nPREMADE_PROMPTS = {}\nprompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file\ndef load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "PERSONALITIES",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "PERSONALITIES = {}\nPREMADE_PROMPTS = {}\nprompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file\ndef load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)\n    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "PREMADE_PROMPTS",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "PREMADE_PROMPTS = {}\nprompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file\ndef load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)\n    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})\ndef load_global_prompts():",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "prompts_file_path",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "prompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'  # Specify your prompts file\ndef load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)\n    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})\ndef load_global_prompts():\n    \"\"\"Loads prompts into global variables, handling potential errors.\"\"\"",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "MODEL_DISPLAY_NAMES",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "MODEL_DISPLAY_NAMES = {\n    \"Vietai\": \"Tuanpham/t-visstar-7b:latest\",\n    \"codegpt\": \"marco-o1\",\n}\nAVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in {\n        \"Tuanpham/t-visstar-7b:latest\",\n        \"marco-o1\",\n        \"llama2\",\n        \"codellama\"",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "AVAILABLE_MODELS",
+        "kind": 5,
+        "importPath": "Backup",
+        "description": "Backup",
+        "peekOfCode": "AVAILABLE_MODELS = {\n    model_tech: model_tech for model_tech in {\n        \"Tuanpham/t-visstar-7b:latest\",\n        \"marco-o1\",\n        \"llama2\",\n        \"codellama\"\n    }\n}\n# ************************************************************************\n# *                      Helper Functions                                *",
+        "detail": "Backup",
+        "documentation": {}
+    },
+    {
+        "label": "load_prompts",
+        "kind": 2,
         "importPath": "gpt4allmaster",
         "description": "gpt4allmaster",
         "peekOfCode": "def load_prompts(file_path):\n    \"\"\"Loads prompts, example responses, and personalities from a Python file.\"\"\"\n    with open(file_path, 'r', encoding='utf-8') as file:\n        prompts_code = file.read()\n    local_vars = {}\n    exec(prompts_code, {}, local_vars)\n    return local_vars.get('EXAMPLE_RESPONSES', {}), local_vars.get('PERSONALITIES', {}), local_vars.get('PREMADE_PROMPTS', {})\ndef load_global_prompts():\n    \"\"\"Loads prompts into global variables, handling potential errors.\"\"\"\n    global EXAMPLE_RESPONSES, PERSONALITIES, PREMADE_PROMPTS",
@@ -618,7 +1002,7 @@
         "kind": 2,
         "importPath": "gpt4allmaster",
         "description": "gpt4allmaster",
-        "peekOfCode": "def show_all_chats():\n    \"\"\"Displays all chat histories for all users.\"\"\"\n    all_chats_history = []\n    for user_file in os.listdir(USER_DATA_FOLDER):\n        if os.path.isdir(os.path.join(USER_DATA_FOLDER, user_file)):\n            username = user_file\n            user_data = load_user_data(username)\n            all_chats_history.append([None, f\"=== Chat History for {username} ===\"])\n            for chat_id, chat in user_data.get(\"chat_history\", {}).items():\n                for msg in chat:",
+        "peekOfCode": "def show_all_chats():\n    \"\"\"Displays all chat histories for all users.\"\"\"",
         "detail": "gpt4allmaster",
         "documentation": {}
     },
@@ -713,20 +1097,11 @@
         "documentation": {}
     },
     {
-        "label": "create_user_interface",
-        "kind": 2,
-        "importPath": "gradio_ui",
-        "description": "gradio_ui",
-        "peekOfCode": "def create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;\n            gap: 10px;\n        }",
-        "detail": "gradio_ui",
-        "documentation": {}
-    },
-    {
         "label": "USER_DATA_FOLDER",
         "kind": 5,
         "importPath": "gradio_ui",
         "description": "gradio_ui",
-        "peekOfCode": "USER_DATA_FOLDER = config.get(\"user_data_folder\", \"userdata\")\nPROMPTS_FILE_PATH = config.get(\"prompts_file_path\", \"z:/This/This/My APP/Earthship_capt/prompts.txt\")\nAVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"",
+        "peekOfCode": "USER_DATA_FOLDER = config.get(\"user_data_folder\", \"userdata\")\nPROMPTS_FILE_PATH = config.get(\"prompts_file_path\", \"z:/This/This/My APP/Earthship_capt/prompts.txt\")\nAVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\nif __name__ == \"__main__\":\n    user_interface = create_user_interface()\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {",
         "detail": "gradio_ui",
         "documentation": {}
     },
@@ -735,7 +1110,7 @@
         "kind": 5,
         "importPath": "gradio_ui",
         "description": "gradio_ui",
-        "peekOfCode": "PROMPTS_FILE_PATH = config.get(\"prompts_file_path\", \"z:/This/This/My APP/Earthship_capt/prompts.txt\")\nAVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {",
+        "peekOfCode": "PROMPTS_FILE_PATH = config.get(\"prompts_file_path\", \"z:/This/This/My APP/Earthship_capt/prompts.txt\")\nAVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\nif __name__ == \"__main__\":\n    user_interface = create_user_interface()\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;",
         "detail": "gradio_ui",
         "documentation": {}
     },
@@ -744,7 +1119,7 @@
         "kind": 5,
         "importPath": "gradio_ui",
         "description": "gradio_ui",
-        "peekOfCode": "AVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;",
+        "peekOfCode": "AVATAR_IMAGES_PATH = config.get(\"avatar_images_path\", \"icons\")\nMODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\nif __name__ == \"__main__\":\n    user_interface = create_user_interface()\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;",
         "detail": "gradio_ui",
         "documentation": {}
     },
@@ -753,7 +1128,7 @@
         "kind": 5,
         "importPath": "gradio_ui",
         "description": "gradio_ui",
-        "peekOfCode": "MODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;",
+        "peekOfCode": "MODEL_NAME = config.get(\"model_name\", \"Tuanpham/t-visstar-7b:latest\")\nSERVER_PORT = config.get(\"server_port\", 7871)\nif __name__ == \"__main__\":\n    user_interface = create_user_interface()\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;\n            gap: 10px;",
         "detail": "gradio_ui",
         "documentation": {}
     },
@@ -762,7 +1137,7 @@
         "kind": 5,
         "importPath": "gradio_ui",
         "description": "gradio_ui",
-        "peekOfCode": "SERVER_PORT = config.get(\"server_port\", 7871)\ndef create_user_interface():\n    \"\"\"Creates the Gradio user interface.\"\"\"\n    if not PERSONALITIES:\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;\n            gap: 10px;",
+        "peekOfCode": "SERVER_PORT = config.get(\"server_port\", 7871)\nif __name__ == \"__main__\":\n    user_interface = create_user_interface()\n        load_global_prompts()\n    with gr.Blocks(css=\"\"\"\n        .message {\n            display: flex;\n            align-items: flex-start;\n            gap: 10px;\n        }",
         "detail": "gradio_ui",
         "documentation": {}
     }
