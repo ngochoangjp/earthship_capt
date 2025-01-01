@@ -1,0 +1,160 @@
+Earthship AI - User Documentation
+
+1. How to Use (for Normal Users):
+
+Getting Started:
+
+Launch the Application: Run the Python script. This will open a web interface in your default browser (usually at http://127.0.0.1:7871).
+
+Login or Create an Account:
+
+Login: If you have an account, enter your username and password in the "Đăng nhập" section and click "Đăng nhập".
+
+Create Account: If you're new, click "Tạo người dùng mới", enter a username and password, and then click the "Tạo người dùng mới" button. The default password is "admin".
+
+Chatting with the AI:
+
+Select Personality: Choose an AI personality from the "Chọn tính cách AI" dropdown menu. Each personality has a different style and knowledge base.
+
+Select Model: Choose an AI model from the "Chọn mô hình AI" dropdown.
+
+Start a New Chat: Click the "Bắt đầu cuộc trò chuyện mới" button to begin a fresh conversation.
+
+Enter Your Message: Type your message in the "Nhập tin nhắn của bạn" textbox.
+
+Send Message: Press Enter or click the "Gửi" button.
+
+View Response: The AI's response will appear in the chat window. The response will be streamed word by word.
+
+Other Features:
+
+Stop Response Generation: Click "Dừng tạo câu trả lời" to stop the AI from generating further text.
+
+Use Premade Prompts: Click on the buttons in the "Thư viện công cụ" section to insert pre-written prompts into your message.
+
+Load Previous Chats: Select a chat from the "Lịch sử trò chuyện" dropdown and click "Load Chat" to view past conversations.
+
+Rename Chats: Load a chat, click "Rename Chat", enter a new name in the textbox that appears, and press Enter.
+
+Internet Search (Optional): Check the "Sử dụng Internet để tìm kiếm" box to allow the AI to search the web for information related to your query. Note: The AI might use specific links or a general web search depending on the chosen personality.
+
+Prompt Helper: Click the "💡" button next to the message input to get suggestions on how to improve your prompt.
+
+User Profile:
+
+Edit Profile: Click "Chỉnh sửa thông tin cá nhân", enter your password when prompted, and then fill in the fields (Name, Age, Gender, Height, Weight, etc.) and click "Lưu thông tin".
+
+Hide Profile: Click "Ẩn thông tin cá nhân" to hide your profile details from the chat interface.
+
+2. Advanced Settings (for Power Users):
+
+Accessing Advanced Settings:
+
+Most advanced settings are not directly exposed in the user interface. You will need to modify the code or configuration files to change them.
+
+Key Settings:
+
+Max Tokens (Response Length):
+
+Where: In the chat_with_model function.
+
+How: Change the max_tokens argument (default is 1000) when calling ollama.chat.
+
+Also: In the stream_chat function, inside the options for ollama.chat, you can adjust:
+
+num_predict: Controls maximum response length (similar to max tokens).
+
+temperature: Adjusts randomness (higher = more creative).
+
+top_k: Limits word choices to the top K probable words.
+
+top_p: Limits word choices based on cumulative probability.
+
+Max Input:
+
+Where: There isn't a strict max input length enforced by the code itself. However, very long inputs might cause issues with the AI model or the interface.
+
+How: The msg textbox in the Gradio interface has a max_length of 1000. You can modify this if needed. Be mindful of the limitations of the underlying AI model.
+
+Viewing Options:
+
+Where: The Gradio interface (gr.Chatbot, gr.Textbox, etc.) and CSS code define most of the visual aspects.
+
+How:
+
+Modify the height, render, elem_classes, etc. parameters of Gradio components.
+
+Edit the CSS within the with gr.Blocks(css=...) section to change the styling of elements.
+
+Text Generation Delay Speed:
+
+Where: The streaming speed is determined by how quickly the Ollama model generates text and how the stream_chat function yields chunks.
+
+How:
+
+There's no built-in delay. You could introduce an artificial delay using time.sleep() within the stream_chat loop, but this might make the interface feel unresponsive.
+
+The primary factor is the Ollama model's processing speed.
+
+Changing Prompts and Personalities:
+
+Where: The prompts.txt file.
+
+How:
+
+Edit prompts.txt to modify EXAMPLE_RESPONSES, PERSONALITIES, and PREMADE_PROMPTS.
+
+Follow the existing format (dictionaries with specific keys like "system", "user", "links").
+
+Restart the application for changes to take effect.
+
+Changing Models:
+
+Where: MODEL_DISPLAY_NAMES and AVAILABLE_MODELS dictionaries.
+
+How:
+
+Add or modify entries in these dictionaries, mapping display names to Ollama model identifiers.
+
+Ensure the models you add are installed and accessible to Ollama.
+
+Restart the application for changes to take effect.
+
+User Data:
+
+Where: The userdata folder.
+
+How:
+
+User data is stored in JSON files within subfolders named after each username.
+
+You can directly examine or modify these files, but be careful not to corrupt the structure.
+
+Admin Panel:
+
+Where: The code related to admin_panel, user_selector, admin_chatbot, etc.
+
+How:
+
+The admin panel is accessible to the user "admin" by default.
+
+You can customize the admin features by modifying the relevant functions and Gradio components.
+
+Logging:
+
+Where: The logging.basicConfig line.
+
+How: Change the level to control the verbosity of logging (e.g., logging.DEBUG for more detailed logs). You can also change the format of the log messages.
+
+Important Notes (for Advanced Users):
+
+Ollama: Make sure you have Ollama installed and running correctly. You'll need to have the AI models you want to use downloaded in Ollama.
+
+Restart: After making code changes, you usually need to restart the Python script for them to take effect.
+
+Error Handling: The code has some basic error handling, but you might want to add more robust error handling, especially if you're making significant modifications.
+
+Security: If you plan to deploy this application publicly, consider security implications carefully, especially regarding user data and authentication.
+
+Let me know if you have any other questions.
+

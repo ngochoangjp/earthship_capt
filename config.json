@@ -1,0 +1,7 @@
+{
+    "user_data_folder": "userdata",
+    "prompts_file_path": "z:/This/This/My APP/Earthship_capt/prompts.txt",
+    "avatar_images_path": "icons",
+    "model_name": "Tuanpham/t-visstar-7b:latest",
+    "server_port": 7871
+}

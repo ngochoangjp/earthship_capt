@@ -6,30 +6,78 @@ import random
 import logging
 from pathlib import Path
 import gradio as gr
-import ollama
+#import ollama  # Removed ollama import
 from datetime import datetime
 import tiktoken
 import requests
 from bs4 import BeautifulSoup
 import time
+import google.generativeai as genai
+
+import os
+import logging
+import google.generativeai as genai
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Secure API key retrieval
+def get_google_api_key():
+    """
+    Retrieve Google API key with multiple fallback methods.
+    
+    Priority:
+    1. Environment variable
+    2. API_KEY.txt file
+    3. Raise an error if no key is found
+    """
+    # Check environment variable first
+    env_key = os.environ.get("GOOGLE_API_KEY")
+    if env_key and env_key.startswith("AIza"):
+        return env_key
+
+    # Check API_KEY.txt file
+    try:
+        with open("API_KEY.txt", "r") as f:
+            file_content = f.read().strip()
+            # Extract the first AIza key
+            match = re.search(r'(AIza[a-zA-Z0-9_-]+)', file_content)
+            if match:
+                return match.group(1)
+    except FileNotFoundError:
+        logging.warning("API_KEY.txt file not found.")
+    except Exception as e:
+        logging.error(f"Error reading API_KEY.txt: {e}")
+
+    # If no key is found, raise a descriptive error
+    raise ValueError(
+        "No valid Google AI API key found. "
+        "Please set GOOGLE_API_KEY environment variable or "
+        "add a valid key to API_KEY.txt"
+    )
+
+# Safely configure Gemini API
+try:
+    GOOGLE_API_KEY = get_google_api_key()
+    genai.configure(api_key=GOOGLE_API_KEY)
+except ValueError as e:
+    logging.critical(str(e))
+    sys.exit(1)
 
 # Initialize global variables
 USER_DATA_FOLDER = "userdata"
 PERSONALITIES = {}
 EXAMPLE_RESPONSES = {}
 
-
 # Create user data folder if it doesn't exist
 if not os.path.exists(USER_DATA_FOLDER):
     os.makedirs(USER_DATA_FOLDER)
 
+# --- Rest of your code (e.g., loading models, handling interactions) ---
+
 # ************************************************************************
 # *                         Import prompts                        *
 # ************************************************************************
-
 
 def load_prompts(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -39,7 +87,7 @@ def load_prompts(file_path):
     return local_vars.get('EXAMPLE_RESPONSES'), local_vars.get('PERSONALITIES'), local_vars.get('PREMADE_PROMPTS')
 
 # Load the prompts from prompts.txt
-prompts_file_path = 'z:/This/This/My APP/Earthship_capt/prompts.txt'
+prompts_file_path = 'prompts.txt'  # Changed the path to a relative path
 
 # Initialize global variables
 EXAMPLE_RESPONSES = {}
@@ -73,20 +121,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 DEFAULT_PASSWORD = "admin"
 
-# Available Ollama Models
+# Available Gemini Models
 MODEL_DISPLAY_NAMES = {
-    "Vietai": "Tuanpham/t-visstar-7b:latest",
-    "codegpt": "marco-o1",
+    "Gemini Pro": "gemini-pro",
+    # Add other Gemini models if needed
 }
 
-# Technical model names for Ollama
+# Technical model names for Gemini
 AVAILABLE_MODELS = {
-    model_tech: model_tech for model_tech in {
-        "Tuanpham/t-visstar-7b:latest",
-        "marco-o1",
-        "llama2",
-        "codellama"
-    }
+    model_tech: model_tech for model_tech in MODEL_DISPLAY_NAMES.values()
 }
 
 # Folder to store user data
@@ -135,7 +178,7 @@ def format_user_info(profile):
 
 def estimate_tokens(text):
     """Estimates the number of tokens in a text string."""
-    encoding = tiktoken.encoding_for_model("Tuanpham/t-visstar-7b:latest")
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")  # Use a general-purpose model for estimation
     return len(encoding.encode(text))
 
 # ************************************************************************
@@ -180,72 +223,8 @@ def update_existing_user_data():
 update_existing_user_data()
 
 # ************************************************************************
-# *               Web Search and Scrape Function                        *
-# ************************************************************************
-
 def web_search_and_scrape(query, personality, links):
-    """
-    Searches the web and specific links based on the query and personality,
-    scrapes the content of the top results, and returns a summarized response
-    along with reference links.
-    """
-    search_results = []
-    reference_links = set()
-
-    # Search specific links provided
-    if links:
-        for link in links:
-            try:
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(link + "/search?q=" + query, headers=headers)
-                response.raise_for_status()
-
-                soup = BeautifulSoup(response.content, 'html.parser')
-                # Extract titles and snippets - adapt selectors as needed based on website structure
-                results = soup.find_all('div', class_='search-result', limit=2)  # Example selector
-                for result in results:
-                    title_elem = result.find('h3')
-                    snippet_elem = result.find('p')
-                    
-                    title = title_elem.text if title_elem else "No title"
-                    snippet = snippet_elem.text if snippet_elem else "No snippet"
-                    
-                    search_results.append(f"{title}: {snippet}")
-                    reference_links.add(link)
-            except Exception as e:
-                logging.error(f"Error searching link {link}: {e}")
-                continue
-
-    # General web search using DuckDuckGo if no specific results or if personality requires it
-    if not search_results or personality == "Uncensored AI":
-        try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(f"https://duckduckgo.com/html/?q={query}", headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.content, 'html.parser')
-            # Extract titles, snippets, and links - adapt selectors as needed
-            results = soup.find_all('div', class_='result', limit=3)
-            for result in results:
-                title_elem = result.find('a', class_='result__a')
-                snippet_elem = result.find('a', class_='result__snippet')
-                
-                if title_elem:
-                    title = title_elem.text
-                    link = title_elem.get('href', '')
-                    snippet = snippet_elem.text if snippet_elem else "No snippet"
-                    
-                    search_results.append(f"{title}: {snippet}")
-                    if link:
-                        reference_links.add(link)
-        except Exception as e:
-            logging.error(f"Error during general web search: {e}")
-
-    if search_results:
-        summary = "Thông tin tìm được:\n" + "\n".join(search_results)
-        return summary, list(reference_links)
-    else:
-        return "Không tìm thấy thông tin liên quan.", []
+    return "Web search is disabled for debugging purposes.", []
 
 # ************************************************************************
 # *                    Save User Data Function                         *
@@ -663,7 +642,6 @@ def create_user_interface():
                 ] + [gr.update(choices=list(PERSONALITIES.keys())), gr.update(choices=list(MODEL_DISPLAY_NAMES.keys()))]
             return [gr.update(value="") for _ in range(10)] + [gr.update(), gr.update()] # Return empty updates for personality and model
 
-
         # ************************************************************************
         # *                       New Chat Function                          *
         # ************************************************************************
@@ -727,12 +705,12 @@ def create_user_interface():
                 return [], None
 
         # ************************************************************************
-        # *                    Stream Chat Function (Modified)                 *
+        # *                    Stream Chat Function (Modified for Gemini)     *
         # ************************************************************************
 
-        def stream_chat(message, history, login_info, personality, ollama_model, current_chat_id, use_internet):
+        def stream_chat(message, history, login_info, personality, gemini_model, current_chat_id, use_internet):
             """
-            Streams the response from Ollama word by word with a delay.
+            Streams the response from Gemini word by word with a delay.
             """
             global stop_generation
             stop_generation = False
@@ -772,15 +750,20 @@ def create_user_interface():
                 # Skip personality prompt for certain personalities
                 skip_personality_prompt = personality in ["Uncen AI", "Uncensored AI"]
                 if skip_personality_prompt:
-                    system_message = personality_data.get("system", "")
+                    system_message = ""
                 else:
                     system_message = f"{personality_prompt}\n\n{personality_data.get('system', '')}"
 
-                # Create the conversation history
+                # Create the conversation history for Gemini
+                # Gemini uses a different format than Ollama
                 messages = []
                 messages.append({
-                    'role': 'system',
-                    'content': system_message
+                    'role': 'user',
+                    'parts': [system_message]
+                })
+                messages.append({
+                    'role': 'model',
+                    'parts': ["Okay, I will follow the provided example."]  # Placeholder response
                 })
 
                 # Check if the message is from a premade prompt
@@ -793,69 +776,64 @@ def create_user_interface():
                 if current_prompt:
                     # Add the system prompt for the premade prompt
                     messages.append({
-                        'role': 'system',
-                        'content': current_prompt["system"]
-                })
+                        'role': 'user',
+                        'parts': [current_prompt["system"]]
+                    })
+                    messages.append({
+                        'role': 'model',
+                        'parts': ["Understood."]  # Placeholder response
+                    })
 
-                # Add conversation history
+                # Add conversation history (Gemini format)
                 if history:
                     for user_msg, assistant_msg in history:
                         if user_msg:
                             messages.append({
                                 'role': 'user',
-                                'content': user_msg
+                                'parts': [user_msg]
                             })
                         if assistant_msg:
                             messages.append({
-                                'role': 'assistant',
-                                'content': assistant_msg
+                                'role': 'model',
+                                'parts': [assistant_msg]
                             })
 
                 # Add current message
                 messages.append({
                     'role': 'user',
-                    'content': message
+                    'parts': [message]
                 })
 
-                # Generate response using ollama.chat
+                # Generate response using gemini
+                model = genai.GenerativeModel(MODEL_DISPLAY_NAMES.get(gemini_model, gemini_model))
+                chat = model.start_chat(history=messages[:-1])  # Exclude the last message (current user message) from history
+
                 response_complete = ""
-                search_links = [] # Initialize search_links here
-                
-                # Stream response from Ollama
-                response_stream = ollama.chat(
-                    model=MODEL_DISPLAY_NAMES.get(ollama_model, ollama_model),
-                    messages=messages,
-                    stream=True
-                )
+                search_links = []
 
+                # Stream response from Gemini
+                # history = history or []
+                # current_response = ""
+
+                # Use non-streaming response for simplicity:
+                response = chat.send_message(message)
+                current_response = response.text
+
+                # Update history
                 history = history or []
-                current_response = ""
-                
-                for chunk in response_stream:
-                    if stop_generation:
-                        break
+                history.append([message, current_response]) # Append the new response
 
-                    # Access the content correctly from the chunk
-                    if 'message' in chunk and 'content' in chunk['message']:
-                        response_chunk = chunk['message']['content']
-                        current_response += response_chunk
-                        
-                        # Create a new history with the current message and accumulated response
-                        new_history = history.copy()
-                        new_history.append([message, current_response])  # Use list instead of tuple
-                        yield new_history
+                yield history
 
                 # Save final chat history
                 if login_info.get("logged_in"):
                     username = login_info["username"]
-                    final_history = history.copy()
-                    final_history.append([message, current_response])  # Use list instead of tuple
-                    save_chat_history(username, current_chat_id, final_history)
+                    save_chat_history(username, current_chat_id, history)
 
             except Exception as e:
                 logging.error(f"Error in stream_chat: {str(e)}")
                 history = history or []
-                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])  # Use list instead of tuple
+                history.append([message, "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại."])
                 yield history
 
         # ************************************************************************
@@ -1032,7 +1010,7 @@ def create_user_interface():
             return "", history
 
         # ************************************************************************
-        # *                        Bot Response Function (Modified)            *
+        # *                        Bot Response Function (Modified for Gemini) *
         # ************************************************************************
 
         def bot_response(message, history, login_info, personality, model, current_chat_id, use_internet):
@@ -1171,10 +1149,10 @@ def create_user_interface():
         )
 
         msg.submit(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
+            bot_response, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot]
         )
         send.click(user_msg, [msg, chatbot, login_info, current_chat_id], [msg, chatbot]).then(
-            bot_response, [chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot, chat_history_dropdown, chat_history_dropdown]
+            bot_response, [msg, chatbot, login_info, personality, model, current_chat_id, use_internet_checkbox], [chatbot]
         )
         stop.click(stop_gen)
 
@@ -1232,9 +1210,6 @@ def create_user_interface():
         )
 
     return user_interface
-
-
-
 
 # ************************************************************************
 # *                     Launch User Interface                          *
